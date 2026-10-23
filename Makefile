@@ -58,4 +58,4 @@ icons:
 ## clean: remove build artifacts.
 clean:
 	$(CARGO) clean
-	rm -rf target/Dislexia.app .iconset
+	rm -rf target/Dislexia.app icons.iconset

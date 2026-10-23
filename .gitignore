@@ -8,7 +8,7 @@
 *.dmg
 
 # Icon build scratch (iconset dir used by scripts/make-icons.sh)
-.iconset/
+icons.iconset/
 
 # Editors / agents
 .agents/
