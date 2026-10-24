@@ -58,9 +58,9 @@ Each milestone ends with a working `cargo run` (or bundled app) and its acceptan
 **Scope** ([07](07-theme.md)): appearance observer + palette swap (dark/light), custom primitives (assistant bar, cursor, active-row), contrast fixes, tray template PNGs (generated from [`media/icon-typewriter.svg`](../media/icon-typewriter.svg) in M0) verified and staged for M6.
 
 **Acceptance**
-- [ ] Live OS appearance switch re-themes instantly
-- [ ] No hard-coded colors in `ui/` (`rg '#[0-9a-fA-F]{6}' src/ui` → empty)
-- [ ] Both palettes pass the contrast spot-checks of 07 §6
+- [x] Live OS appearance switch re-themes instantly
+- [x] No hard-coded colors in `ui/` (`rg '#[0-9a-fA-F]{6}' src/ui` → empty)
+- [x] Both palettes pass the contrast spot-checks of 07 §6
 
 ## M6 — Tray & background lifecycle (M→L; the risky one)
 

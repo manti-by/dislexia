@@ -10,6 +10,7 @@ fn main() {
 
     application().run(|cx| {
         gpui_kit::init(cx);
+        dislexia::theme::init(cx);
 
         // Global shortcuts (`plan/03 §7`); per-window actions dispatch to the
         // root entity's `on_action` handlers.
