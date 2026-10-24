@@ -29,10 +29,10 @@ Each milestone ends with a working `cargo run` (or bundled app) and its acceptan
 **Scope** ([04](04-ollama-client.md)): `ollama` module complete (client, types, error taxonomy) + unit tests for parsing; `Dislexia` builds requests from **hardcoded** settings struct in `main.rs`; streaming wired to `ChatStore`; Stop button + cancellation; error blocks in transcript.
 
 **Acceptance**
-- [ ] Against real local Ollama: full conversation works across turns
-- [ ] Kill `ollama serve` → friendly error; restart → works again
-- [ ] Stop mid-stream keeps partial text
-- [ ] `tests/ollama.rs` mock-server tests pass ([09](09-testing.md) §2)
+- [x] Against real local Ollama: full conversation works across turns
+- [x] Kill `ollama serve` → friendly error; restart → works again
+- [x] Stop mid-stream keeps partial text
+- [x] `tests/ollama.rs` mock-server tests pass ([09](09-testing.md) §2)
 
 ## M3 — Settings (M)
 

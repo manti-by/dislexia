@@ -101,6 +101,13 @@ pub struct DoneStats {
 
 `#[serde(untagged)]` handles the two shapes; the done-line detection is `done == true`. If an `error` field is present (server-side errors can appear mid-stream), surface it as `OllamaError::Api`.
 
+> Implementation note (M2): the untagged enum does not work for the real Ollama
+> payload — the done line also carries `message` (with empty content), so the
+> `Delta` arm matches first and the stats would never be seen. `ChatChunk` is
+> a flat struct instead: `message` (default), `done: bool`, optional `error`
+> and flattened `DoneStats`; `done == true` discriminates the final line, and
+> `error: Some(_)` surfaces as `OllamaError::Api`.
+
 ## 5. Streaming loop (background executor)
 
 ```rust
