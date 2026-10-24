@@ -1,1 +1,3 @@
-// Implemented in M6 — see plan/08-tray-and-lifecycle.md.
+//! macOS platform helpers. macOS-only by design (`plan/08 §5`).
+
+pub mod macos;

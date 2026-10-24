@@ -1,8 +1,9 @@
 //! Dislexia — a macOS menu-bar chat client for local Ollama models.
 //!
-//! Boot order only: logging → theme → settings/history → tray → open window.
+//! Boot order only: logging → theme → settings → tray → open window.
 //! All logic lives in `src/lib.rs` behind `dislexia::`.
 
+use dislexia::platform::macos::DockPolicy;
 use gpui_kit::*;
 
 fn main() {
@@ -17,7 +18,22 @@ fn main() {
         cx.bind_keys([
             KeyBinding::new("cmd-n", dislexia::app::NewChat, None),
             KeyBinding::new("cmd-,", dislexia::app::OpenSettings, None),
+            KeyBinding::new("cmd-w", dislexia::app::HideWindow, None),
+            KeyBinding::new("cmd-q", dislexia::app::QuitApp, None),
         ]);
+
+        // Tray must outlive every window — it leaks itself on purpose
+        // (dropping a tray icon removes it).
+        dislexia::tray::init(cx);
+
+        // Closing the last window hides the Dock icon but keeps the app and
+        // tray alive (`plan/08 §4`); quitting stays explicit.
+        cx.on_window_closed(|cx, _| {
+            if cx.windows().is_empty() {
+                dislexia::platform::macos::set_dock_policy(DockPolicy::Accessory);
+            }
+        })
+        .detach();
 
         // Settings load before the window opens (`plan/02 §4` boot order).
         let settings = dislexia::settings::load();

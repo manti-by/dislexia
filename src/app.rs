@@ -74,6 +74,54 @@ pub struct GenerationHandle {
     pub started_at: chrono::DateTime<chrono::Utc>,
 }
 
+/// Process-wide handles to the root entity and its window. The root view
+/// entity is owned by its window, so when the window closes the handle goes
+/// weak and the tray recreates the window (reloading state from disk,
+/// `plan/08 §4`).
+#[derive(Default)]
+pub struct AppRoot {
+    pub root: Option<WeakEntity<Dislexia>>,
+    pub window: Option<AnyWindowHandle>,
+}
+
+impl Global for AppRoot {}
+
+/// Shows (or recreates) the main window and brings it to the front
+/// (`plan/08 §4`).
+pub fn show_main_window(cx: &mut App) {
+    let state = cx.global::<AppRoot>();
+    let alive = state
+        .window
+        .is_some_and(|handle| cx.windows().contains(&handle));
+    if alive {
+        if let Some(handle) = state.window {
+            let _ = handle.update(cx, |_, window, _| window.activate_window());
+        }
+    } else {
+        // Recreate: settings and chats reload from disk.
+        let _ = ui::open_main_window(ui::window_options(cx), settings::load(), cx);
+    }
+    cx.activate(true);
+    crate::platform::macos::set_dock_policy(crate::platform::macos::DockPolicy::Regular);
+    crate::platform::macos::activate_app();
+}
+
+/// Tray "New Chat": show the window, then start a fresh chat in it
+/// (`plan/08 §2`).
+pub fn new_chat_from_tray(cx: &mut App) {
+    show_main_window(cx);
+    let (root, window) = {
+        let state = cx.global::<AppRoot>();
+        (state.root.clone(), state.window)
+    };
+    if let (Some(root), Some(window)) = (root, window) {
+        let _ = window.update(cx, |_, window, cx| {
+            root.update(cx, |this, cx| this.handle_new_chat(window, cx))
+                .ok();
+        });
+    }
+}
+
 /// The root entity; every screen reads state from here.
 pub struct Dislexia {
     store: Entity<ChatStore>,
@@ -691,6 +739,13 @@ impl Render for Dislexia {
             )
             .on_action(cx.listener(|this, _: &OpenSettings, window, cx| {
                 settings_ui::open(this, window, cx);
+            }))
+            .on_action(cx.listener(|this, _: &HideWindow, window, _cx| {
+                let _ = this; // the window closes; state lives on disk
+                window.remove_window();
+            }))
+            .on_action(cx.listener(|_this, _: &QuitApp, _window, cx| {
+                cx.quit();
             }))
             .size_full()
             .bg(theme.background)

@@ -42,8 +42,12 @@ pub fn open_main_window(
     settings: crate::settings::Settings,
     cx: &mut App,
 ) -> gpui_kit::Result<AnyWindowHandle> {
-    let (handle, _root) = gpui_kit::open_window(options, cx, |window, cx| {
+    let (handle, root) = gpui_kit::open_window(options, cx, |window, cx| {
         cx.new(|cx| Dislexia::with_settings(settings, window, cx))
     })?;
+    cx.set_global(crate::app::AppRoot {
+        root: Some(root.downgrade()),
+        window: Some(handle),
+    });
     Ok(handle)
 }

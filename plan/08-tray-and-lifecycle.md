@@ -67,6 +67,19 @@ fn spawn_event_thread() {
 
 `forward` must land on the main thread. Preferred mechanism: capture a `WeakEntity<Dislexia>` at startup; in the forwarding closure run `entity.update(cx, |app, cx| app.handle_tray(ev, cx))` via the GPUI main-thread dispatch the pinned version offers (e.g. spawning onto the app's foreground executor / `App::spawn`). If entity APIs require window context, use the stored root entity handle, which lives app-wide. **Verify the exact main-thread hop API at M6** — this is the one integration in the app without a stock GPUI equivalent. Fallback that always works: `dispatch_get_main_queue()` closure via `objc2-foundation` that calls a function-pointer-based trampoline into a global holding the weak handle.
 
+> Implementation note (M6): the hop is a GPUI foreground task (`App::spawn`)
+> that drains both global receivers every 100ms — all entity access stays on
+> the main thread by construction and no extra hop crate is needed; a 100ms
+> poll is invisible at menu-click cadence. Risk #1 is resolved in the
+> pinned GPUI: quitting when the last window closes is **opt-in** via
+> `cx.on_window_closed` (see the `on_window_close_quit` example in the gpui
+> sources), so the default keeps the process alive and the fallbacks were
+> not needed. The root view entity is owned by its window, so the tray
+> routes through an `AppRoot` global (weak root + window handle); when the
+> window is gone, "Open"/"New Chat" recreate the window, which reloads
+> settings and chats from disk. The `Tray` handle leaks by design — dropping
+> a tray icon removes it — instead of living on the (droppable) root entity.
+
 ## 4. Window show / hide & Dock icon policy
 
 State: `main_window: Option<WindowHandle>` on `Dislexia` (recreated after close — GPUI destroys closed windows).
