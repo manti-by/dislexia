@@ -111,14 +111,30 @@ pub fn show_main_window(cx: &mut App) {
 /// (`plan/08 §2`).
 pub fn new_chat_from_tray(cx: &mut App) {
     show_main_window(cx);
+    with_root_window(cx, |this, window, cx| this.handle_new_chat(window, cx));
+}
+
+/// Tray "Settings…": show the window, then open the settings dialog in it
+/// — system prompt, model, server, options (`plan/08 §2`).
+pub fn open_settings_from_tray(cx: &mut App) {
+    show_main_window(cx);
+    with_root_window(cx, |this, window, cx| {
+        ui::settings_ui::open(this, window, cx);
+    });
+}
+
+/// Runs `f` against the root entity inside its window, if both are alive.
+fn with_root_window(
+    cx: &mut App,
+    f: impl FnOnce(&mut Dislexia, &mut Window, &mut Context<Dislexia>),
+) {
     let (root, window) = {
         let state = cx.global::<AppRoot>();
         (state.root.clone(), state.window)
     };
     if let (Some(root), Some(window)) = (root, window) {
         let _ = window.update(cx, |_, window, cx| {
-            root.update(cx, |this, cx| this.handle_new_chat(window, cx))
-                .ok();
+            root.update(cx, |this, cx| f(this, window, cx)).ok();
         });
     }
 }

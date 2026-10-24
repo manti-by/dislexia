@@ -41,6 +41,7 @@ Left-click behavior: `TrayIconEvent::Click` → open main window (same as the me
 |---|---|
 | **Open Dislexia** | Show/focus main window (§4) |
 | **New Chat** | Show window (if hidden) + `NewChat` action |
+| **Settings…** | Show window (if hidden) + open the settings dialog — system prompt, model, server, options |
 | *(separator)* | |
 | **Quit Dislexia** | `cx.quit()` |
 

@@ -14,6 +14,7 @@ use crate::app;
 
 pub const MENU_OPEN: &str = "dislexia.open";
 pub const MENU_NEW_CHAT: &str = "dislexia.new-chat";
+pub const MENU_SETTINGS: &str = "dislexia.settings";
 pub const MENU_QUIT: &str = "dislexia.quit";
 
 /// The tray handle; stored on the app for the process lifetime.
@@ -29,9 +30,16 @@ pub fn init(cx: &mut gpui_kit::App) {
     let menu = Menu::new();
     let open = MenuItem::with_id(MENU_OPEN, "Open Dislexia", true, None);
     let new_chat = MenuItem::with_id(MENU_NEW_CHAT, "New Chat", true, None);
+    let settings = MenuItem::with_id(MENU_SETTINGS, "Settings…", true, None);
     let quit = MenuItem::with_id(MENU_QUIT, "Quit Dislexia", true, None);
-    menu.append_items(&[&open, &new_chat, &PredefinedMenuItem::separator(), &quit])
-        .expect("tray menu builds");
+    menu.append_items(&[
+        &open,
+        &new_chat,
+        &settings,
+        &PredefinedMenuItem::separator(),
+        &quit,
+    ])
+    .expect("tray menu builds");
 
     let icon = TrayIconBuilder::new()
         .with_menu(Box::new(menu.clone()))
@@ -64,6 +72,7 @@ fn load_icon() -> tray_icon::Icon {
 enum Intent {
     Open,
     NewChat,
+    OpenSettings,
     Quit,
 }
 
@@ -84,6 +93,9 @@ fn spawn_event_forwarder(cx: &mut gpui_kit::App) {
                     }
                     Intent::NewChat => {
                         cx.update(app::new_chat_from_tray);
+                    }
+                    Intent::OpenSettings => {
+                        cx.update(app::open_settings_from_tray);
                     }
                     Intent::Quit => {
                         log::info!("quit requested from the tray");
@@ -106,6 +118,7 @@ fn drain_intents() -> Vec<Intent> {
         intents.push(match id {
             MENU_OPEN => Intent::Open,
             MENU_NEW_CHAT => Intent::NewChat,
+            MENU_SETTINGS => Intent::OpenSettings,
             MENU_QUIT => Intent::Quit,
             other => {
                 log::debug!("unhandled tray menu id: {other}");
