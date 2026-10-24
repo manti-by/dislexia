@@ -37,7 +37,8 @@ actions!(
         OpenSettings,
         FocusInput,
         HideWindow,
-        QuitApp
+        QuitApp,
+        EscapePressed
     ]
 );
 
@@ -305,10 +306,18 @@ impl Dislexia {
         self.send(window, cx);
     }
 
-    pub fn handle_stop(&mut self, _window: &mut Window, cx: &mut Context<Self>) {
+    pub fn handle_stop(&mut self, cx: &mut Context<Self>) {
         if let Some(handle) = &self.generation {
             handle.cancel.cancel();
             cx.notify();
+        }
+    }
+
+    /// `esc` (`plan/03 §7`): stop the generation, but only when the composer
+    /// is empty — otherwise esc belongs to the text editor / dialogs.
+    fn handle_escape(&mut self, cx: &mut Context<Self>) {
+        if self.input.read(cx).value().trim().is_empty() {
+            self.handle_stop(cx);
         }
     }
 
@@ -734,9 +743,7 @@ impl Render for Dislexia {
                 this.handle_new_chat(window, cx);
             }))
             .on_action(cx.listener(|this, _: &Send, window, cx| this.handle_send(window, cx)))
-            .on_action(
-                cx.listener(|this, _: &StopGeneration, window, cx| this.handle_stop(window, cx)),
-            )
+            .on_action(cx.listener(|this, _: &StopGeneration, _window, cx| this.handle_stop(cx)))
             .on_action(cx.listener(|this, _: &OpenSettings, window, cx| {
                 settings_ui::open(this, window, cx);
             }))
@@ -746,6 +753,9 @@ impl Render for Dislexia {
             }))
             .on_action(cx.listener(|_this, _: &QuitApp, _window, cx| {
                 cx.quit();
+            }))
+            .on_action(cx.listener(|this, _: &EscapePressed, _window, cx| {
+                this.handle_escape(cx);
             }))
             .size_full()
             .bg(theme.background)

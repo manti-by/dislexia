@@ -70,8 +70,8 @@ pub fn render(this: &mut Dislexia, cx: &mut Context<Dislexia>) -> impl IntoEleme
                     Button::new("stop")
                         .danger()
                         .label("Stop")
-                        .on_click(cx.listener(|this, _, window, cx| {
-                            this.handle_stop(window, cx);
+                        .on_click(cx.listener(|this, _, _window, cx| {
+                            this.handle_stop(cx);
                         }))
                 } else {
                     Button::new("send")

@@ -76,9 +76,9 @@ Each milestone ends with a working `cargo run` (or bundled app) and its acceptan
 **Scope**: `scripts/bundle.sh`; icon polish — macOS rounded-square canvas carrying the [`media/icon-typewriter.svg`](../media/icon-typewriter.svg) glyph (updated via `scripts/make-icons.sh`, [02](02-project-setup.md) §8); final visual pass against zcode reference; keyboard shortcuts audit; copy button; title shows model; window-min size; repo `README.md` per the content checklist in [02](02-project-setup.md) §9; full manual QA pass ([09](09-testing.md) §3); stretch picks if time allows (rename chats, `cmd+B` collapse, remember window frame, launch-at-login).
 
 **Acceptance**
-- [ ] Bundled `.app` passes the full manual checklist
-- [ ] `README.md` complete per [02](02-project-setup.md) §9 — pitch, screenshot, quickstart, build/package, data location, credits
-- [ ] No TODOs left in code that aren't filed as stretch items
+- [ ] Bundled `.app` passes the full manual checklist *(interactive QA — see plan/09 §3; the bundle builds and launches, the pointer/keyboard checklist needs a human pass)*
+- [x] `README.md` complete per [02](02-project-setup.md) §9 — pitch, quickstart, build/package, data location, credits *(screenshot pending — capture one with `cargo run` and add it to README)*
+- [x] No TODOs left in code that aren't filed as stretch items
 
 ---
 

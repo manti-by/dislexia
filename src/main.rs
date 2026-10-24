@@ -20,6 +20,7 @@ fn main() {
             KeyBinding::new("cmd-,", dislexia::app::OpenSettings, None),
             KeyBinding::new("cmd-w", dislexia::app::HideWindow, None),
             KeyBinding::new("cmd-q", dislexia::app::QuitApp, None),
+            KeyBinding::new("escape", dislexia::app::EscapePressed, None),
         ]);
 
         // Tray must outlive every window — it leaks itself on purpose
