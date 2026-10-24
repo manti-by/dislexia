@@ -71,10 +71,12 @@ impl MessageStatus {
 }
 
 /// In-memory chat list plus the active chat id (the sidebar's selection).
+/// When `dir` is set, chat files live in it — one JSON per chat.
 #[derive(Debug)]
 pub struct ChatStore {
     chats: Vec<Chat>,
     active_chat_id: Option<Uuid>,
+    dir: Option<std::path::PathBuf>,
 }
 
 impl Default for ChatStore {
@@ -90,8 +92,59 @@ impl ChatStore {
         let mut store = Self {
             chats: Vec::new(),
             active_chat_id: None,
+            dir: None,
         };
         store.new_chat();
+        store
+    }
+
+    /// Like [`Self::new`], but chat files persist in `dir`.
+    pub fn new_in(dir: &std::path::Path) -> Self {
+        let mut store = Self::new();
+        store.dir = Some(dir.to_owned());
+        store
+    }
+
+    /// Loads every chat file in `dir` (`plan/06 §2–3`): newest first, active
+    /// chat = newest. A fresh in-memory chat starts when there are none.
+    /// Unparseable files are renamed `<uuid>.json.bad` — logged, skipped,
+    /// never deleted.
+    pub fn load(dir: &std::path::Path) -> Self {
+        let mut store = Self {
+            chats: Vec::new(),
+            active_chat_id: None,
+            dir: Some(dir.to_owned()),
+        };
+
+        let mut loaded: Vec<Chat> = Vec::new();
+        if let Ok(entries) = std::fs::read_dir(dir) {
+            for entry in entries.flatten() {
+                let path = entry.path();
+                if path.extension().is_none_or(|extension| extension != "json") {
+                    continue;
+                }
+                match std::fs::read_to_string(&path)
+                    .map_err(anyhow::Error::from)
+                    .and_then(|text| Ok(serde_json::from_str::<Chat>(&text)?))
+                {
+                    Ok(chat) => loaded.push(chat),
+                    Err(error) => {
+                        log::warn!("skipping corrupt chat file {}: {error:#}", path.display());
+                        let bad = path.with_extension("json.bad");
+                        if let Err(rename_error) = std::fs::rename(&path, &bad) {
+                            log::warn!("cannot rename {}: {rename_error}", path.display());
+                        }
+                    }
+                }
+            }
+        }
+        loaded.sort_by_key(|chat| std::cmp::Reverse(chat.updated_at));
+        if loaded.is_empty() {
+            store.new_chat();
+        } else {
+            store.active_chat_id = Some(loaded[0].id);
+            store.chats = loaded;
+        }
         store
     }
 
@@ -109,6 +162,28 @@ impl ChatStore {
         self.chats.push(chat);
         self.active_chat_id = Some(id);
         id
+    }
+
+    /// Removes a chat from memory and deletes its file, if any
+    /// (`plan/06 §3`). The active selection moves to the newest remaining
+    /// chat (a fresh untitled one when the store empties).
+    pub fn delete_chat(&mut self, id: Uuid) {
+        self.chats.retain(|chat| chat.id != id);
+        if let Some(dir) = &self.dir {
+            let _ = remove_chat_file(dir, id);
+        }
+        self.active_chat_id = None;
+        if let Some(newest) = self.sorted_chats().first().map(|chat| chat.id) {
+            self.active_chat_id = Some(newest);
+        }
+        if self.active_chat_id.is_none() {
+            self.new_chat();
+        }
+    }
+
+    /// The chat's file path, when persistence is on.
+    pub fn chat_file(&self, id: Uuid) -> Option<std::path::PathBuf> {
+        Some(self.dir.as_ref()?.join(format!("{id}.json")))
     }
 
     pub fn chats(&self) -> &[Chat] {
@@ -237,6 +312,55 @@ impl ChatStore {
     }
 }
 
+/// The chats directory: `~/Library/Application Support/dislexia/chats/`.
+pub fn chats_dir() -> std::path::PathBuf {
+    crate::settings::data_dir().join("chats")
+}
+
+/// Writes one chat file atomically (`plan/06 §2`): tmp + rename.
+pub fn save_chat(dir: &std::path::Path, chat: &Chat) -> anyhow::Result<()> {
+    std::fs::create_dir_all(dir)?;
+    let json = serde_json::to_string_pretty(chat)?;
+    let path = dir.join(format!("{}.json", chat.id));
+    let tmp = dir.join(format!("{}.json.tmp", chat.id));
+    std::fs::write(&tmp, json)?;
+    std::fs::rename(&tmp, &path)?;
+    Ok(())
+}
+
+fn remove_chat_file(dir: &std::path::Path, id: Uuid) -> std::io::Result<()> {
+    match std::fs::remove_file(dir.join(format!("{id}.json"))) {
+        Ok(()) => Ok(()),
+        // Already gone is fine — deleting an untitled in-memory chat.
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(()),
+        Err(error) => Err(error),
+    }
+}
+
+/// Sidebar group header for a chat by `updated_at`, local time
+/// (`plan/06 §4`): Today / Yesterday / Previous 7 days / Older.
+pub fn group_label(
+    updated_at: chrono::DateTime<chrono::Utc>,
+    now: chrono::DateTime<chrono::Utc>,
+) -> &'static str {
+    use chrono::{Duration, Local, TimeZone};
+
+    let local_date = Local
+        .from_utc_datetime(&updated_at.naive_utc())
+        .date_naive();
+    let today = Local.from_utc_datetime(&now.naive_utc()).date_naive();
+    let days_apart = (today - local_date).num_days();
+    if local_date == today {
+        "Today"
+    } else if days_apart == 1 {
+        "Yesterday"
+    } else if (Duration::days(1)..Duration::days(8)).contains(&Duration::days(days_apart.max(0))) {
+        "Previous 7 days"
+    } else {
+        "Older"
+    }
+}
+
 /// Sidebar title from the first user message: first line, whitespace
 /// collapsed, markdown fences stripped, cut at 48 chars (`plan/06 §4`).
 pub fn derive_title(text: &str) -> String {
@@ -362,6 +486,90 @@ mod tests {
         assert!(!store.set_active(Uuid::nil()));
         assert_eq!(store.active_chat_id(), Some(first));
         assert_ne!(first, second);
+    }
+
+    #[test]
+    fn chat_store_round_trips_through_files() {
+        let dir = tempfile::tempdir().unwrap();
+
+        let mut store = ChatStore::new();
+        let first = store.active_chat_id().unwrap();
+        let second = store.new_chat();
+        store.append_user_message(first, "first chat");
+        store.append_user_message(second, "second chat\nmore text");
+        for chat in store.chats() {
+            save_chat(dir.path(), chat).unwrap();
+        }
+
+        let reloaded = ChatStore::load(dir.path());
+        assert_eq!(reloaded.chats().len(), 2);
+        assert_eq!(reloaded.active_chat_id(), Some(second));
+        let loaded_second = reloaded.chat(second).unwrap();
+        assert_eq!(loaded_second.title, "second chat");
+        assert_eq!(loaded_second.messages[0].content, "second chat\nmore text");
+    }
+
+    #[test]
+    fn corrupt_chat_file_is_renamed_bad_and_skipped() {
+        let dir = tempfile::tempdir().unwrap();
+        let corrupt = dir.path().join("00000000-0000-0000-0000-000000000001.json");
+        std::fs::write(&corrupt, "{not a chat").unwrap();
+
+        let store = ChatStore::load(dir.path());
+        assert_eq!(store.chats().len(), 1, "fresh untitled chat");
+        assert!(
+            dir.path()
+                .join("00000000-0000-0000-0000-000000000001.json.bad")
+                .exists()
+        );
+        assert!(!corrupt.exists());
+    }
+
+    #[test]
+    fn delete_chat_removes_memory_and_file() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut store = ChatStore::new_in(dir.path());
+        let first = store.active_chat_id().unwrap();
+        let second = store.new_chat();
+        store.append_user_message(first, "one");
+        store.append_user_message(second, "two");
+        for chat in store.chats() {
+            save_chat(dir.path(), chat).unwrap();
+        }
+        assert!(dir.path().join(format!("{first}.json")).exists());
+
+        store.delete_chat(first);
+        assert_eq!(store.chats().len(), 1);
+        assert!(!dir.path().join(format!("{first}.json")).exists());
+        assert_eq!(store.active_chat_id(), Some(second));
+
+        // Deleting the last remaining chat falls back to a fresh one.
+        store.delete_chat(second);
+        assert_eq!(store.chats().len(), 1);
+        assert_ne!(store.active_chat_id(), Some(first));
+    }
+
+    #[test]
+    fn sidebar_groups_by_local_date() {
+        use chrono::TimeZone;
+        let now = chrono::Utc
+            .with_ymd_and_hms(2026, 10, 24, 18, 0, 0)
+            .unwrap();
+        let today = chrono::Utc
+            .with_ymd_and_hms(2026, 10, 24, 0, 30, 0)
+            .unwrap();
+        let yesterday = chrono::Utc
+            .with_ymd_and_hms(2026, 10, 23, 18, 0, 0)
+            .unwrap();
+        let three_days_ago = chrono::Utc
+            .with_ymd_and_hms(2026, 10, 21, 12, 0, 0)
+            .unwrap();
+        let long_ago = chrono::Utc.with_ymd_and_hms(2026, 9, 1, 12, 0, 0).unwrap();
+
+        assert_eq!(group_label(today, now), "Today");
+        assert_eq!(group_label(yesterday, now), "Yesterday");
+        assert_eq!(group_label(three_days_ago, now), "Previous 7 days");
+        assert_eq!(group_label(long_ago, now), "Older");
     }
 
     #[test]

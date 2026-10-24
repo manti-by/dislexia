@@ -50,8 +50,8 @@ Each milestone ends with a working `cargo run` (or bundled app) and its acceptan
 **Scope** ([06](06-chat-history.md)): per-chat JSON files, load at startup, save at message granularity, sidebar groups (Today/Yesterday/Older), delete with confirm, corrupt-file tolerance.
 
 **Acceptance**
-- [ ] Relaunch restores everything; unit tests for store pass
-- [ ] Deleting removes file + row; empty new chat never creates a file
+- [x] Relaunch restores everything; unit tests for store pass
+- [x] Deleting removes file + row; empty new chat never creates a file
 
 ## M5 — Theme, zcode look (S→M)
 

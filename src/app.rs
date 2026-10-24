@@ -102,7 +102,7 @@ impl Dislexia {
     }
 
     pub fn with_settings(settings: Settings, window: &mut Window, cx: &mut Context<Self>) -> Self {
-        let store = cx.new(|_| ChatStore::new());
+        let store = cx.new(|_| ChatStore::load(&crate::history::chats_dir()));
         let input = cx.new(|cx| {
             TextareaState::new(window, cx)
                 .auto_grow(1, 6)
@@ -416,6 +416,34 @@ impl Dislexia {
         .detach();
     }
 
+    /// Persists one chat at message granularity (`plan/06 §3`): after the
+    /// user message and when a stream finishes — never per chunk. Chats
+    /// without messages never create a file; the write itself is
+    /// fire-and-forget on the background executor.
+    pub fn persist_chat(&mut self, chat_id: Uuid, cx: &mut Context<Self>) {
+        let Some(chat) = self.store.read(cx).chat(chat_id).cloned() else {
+            return;
+        };
+        if chat.messages.is_empty() {
+            return;
+        }
+        let dir = crate::history::chats_dir();
+        cx.background_executor()
+            .spawn(async move {
+                if let Err(error) = crate::history::save_chat(&dir, &chat) {
+                    log::warn!("cannot persist chat {}: {error:#}", chat.id);
+                }
+            })
+            .detach();
+    }
+
+    /// Deletes a chat (sidebar, confirm dialog): drops it from memory and
+    /// removes the file in the background (`plan/06 §3`).
+    pub fn handle_delete_chat(&mut self, chat_id: Uuid, cx: &mut Context<Self>) {
+        self.store.update(cx, |store, _| store.delete_chat(chat_id));
+        cx.notify();
+    }
+
     /// Pushes `settings_ui.models` into the dropdown, marking a stored model
     /// that is missing on the server (`plan/05 §3`). The editors are
     /// window-bound, so the update hops through the window handle.
@@ -480,6 +508,7 @@ impl Dislexia {
             store.append_assistant_placeholder(chat_id, &model);
             chat_id
         });
+        self.persist_chat(chat_id, cx);
 
         // Compile the request from settings + the (cleaned) chat history.
         let history = self
@@ -587,6 +616,7 @@ impl Dislexia {
                                     store.fail_streaming(chat_id, message);
                                 }
                             });
+                            this.persist_chat(chat_id, cx);
                             this.generation = None;
                             cx.notify();
                         })
@@ -604,6 +634,7 @@ impl Dislexia {
                         this.update(cx, |this, cx| {
                             this.store
                                 .update(cx, |store, _| store.finish_streaming(chat_id, false));
+                            this.persist_chat(chat_id, cx);
                             this.generation = None;
                             cx.notify();
                         })
