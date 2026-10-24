@@ -35,10 +35,15 @@ pub fn window_options(cx: &App) -> WindowOptions {
     }
 }
 
-/// Opens the main window hosting the `Dislexia` root entity.
-pub fn open_main_window(options: WindowOptions, cx: &mut App) -> gpui_kit::Result<AnyWindowHandle> {
+/// Opens the main window hosting the `Dislexia` root entity, seeded with
+/// the settings loaded by `main.rs`.
+pub fn open_main_window(
+    options: WindowOptions,
+    settings: crate::settings::Settings,
+    cx: &mut App,
+) -> gpui_kit::Result<AnyWindowHandle> {
     let (handle, _root) = gpui_kit::open_window(options, cx, |window, cx| {
-        cx.new(|cx| Dislexia::new(window, cx))
+        cx.new(|cx| Dislexia::with_settings(settings, window, cx))
     })?;
     Ok(handle)
 }

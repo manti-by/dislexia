@@ -13,9 +13,14 @@ fn main() {
 
         // Global shortcuts (`plan/03 §7`); per-window actions dispatch to the
         // root entity's `on_action` handlers.
-        cx.bind_keys([KeyBinding::new("cmd-n", dislexia::app::NewChat, None)]);
+        cx.bind_keys([
+            KeyBinding::new("cmd-n", dislexia::app::NewChat, None),
+            KeyBinding::new("cmd-,", dislexia::app::OpenSettings, None),
+        ]);
 
-        dislexia::ui::open_main_window(dislexia::ui::window_options(cx), cx)
+        // Settings load before the window opens (`plan/02 §4` boot order).
+        let settings = dislexia::settings::load();
+        dislexia::ui::open_main_window(dislexia::ui::window_options(cx), settings, cx)
             .expect("failed to open main window");
 
         cx.activate(true);

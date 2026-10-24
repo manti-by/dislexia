@@ -5,12 +5,16 @@
 //! work always goes through the background executor into the service
 //! modules.
 
+use std::sync::Arc;
 use std::sync::mpsc::TryRecvError;
 use std::time::Duration;
 
 use gpui_kit::component::ActiveTheme;
-use gpui_kit::component::input::{InputEvent, TextareaState};
-use gpui_kit::component::{TitleBar, h_flex, v_flex};
+use gpui_kit::component::Icon;
+use gpui_kit::component::button::{Button, ButtonVariants as _};
+use gpui_kit::component::input::{InputEvent, InputState, TextareaState};
+use gpui_kit::component::select::SelectEvent;
+use gpui_kit::component::{IconName, Sizable as _, TitleBar, h_flex, v_flex};
 use gpui_kit::*;
 
 use uuid::Uuid;
@@ -20,8 +24,9 @@ use crate::ollama::{
     self, CancelFlag, ChatChunk, ChatRequest, OllamaClient, OllamaError, Options,
     user_error_message,
 };
-use crate::settings::Settings;
+use crate::settings::{self, Settings};
 use crate::ui;
+use crate::ui::settings_ui::{self, ConnectionStatus, SettingsUi};
 
 actions!(
     dislexia,
@@ -35,6 +40,28 @@ actions!(
         QuitApp
     ]
 );
+
+/// Debounce for settings file writes (`plan/05 §4`).
+const SAVE_DEBOUNCE: Duration = Duration::from_millis(300);
+
+/// Commits one integer option from its editor text; `None` for empty
+/// ("not sent"), the field name is recorded on a parse error.
+fn commit_int<T: std::str::FromStr>(
+    raw: String,
+    field: &'static str,
+    errors: &mut Vec<&'static str>,
+) -> Option<T> {
+    if raw.is_empty() {
+        return None;
+    }
+    match raw.parse::<T>() {
+        Ok(value) => Some(value),
+        Err(_) => {
+            errors.push(field);
+            None
+        }
+    }
+}
 
 /// Cancellation handle for the in-flight generation (`plan/04 §6`). Stored
 /// on the root entity while a stream runs; the background loop checks the
@@ -53,25 +80,25 @@ pub struct Dislexia {
     input: Entity<TextareaState>,
     /// Scroll handle of the transcript, for follow-on-append.
     scroll: ScrollHandle,
-    /// Chat settings (`plan/05`); persisted + editable in M3.
+    /// Chat settings (`plan/05`); persisted, edited in the settings dialog.
     settings: Settings,
+    /// Editors + status for the settings dialog (rendered by settings_ui).
+    pub(crate) settings_ui: SettingsUi,
+    /// Bumps on every settings edit; the last writer wins the file write.
+    save_generation: u64,
     /// Streaming generation, if any (one in-flight at a time, `plan/01 §1`).
     generation: Option<GenerationHandle>,
     /// True while the input holds only whitespace — Send is disabled then.
     input_empty: bool,
+    /// Handle of the main window, captured on first render; needed to touch
+    /// window-bound components (dialog editors) from background tasks.
+    window: Option<AnyWindowHandle>,
     _subscriptions: Vec<Subscription>,
 }
 
 impl Dislexia {
     pub fn new(window: &mut Window, cx: &mut Context<Self>) -> Self {
-        // M2: hardcoded settings only — no file I/O yet (M3 wires load/save
-        // and the settings UI). The model here is a local stand-in until the
-        // first-run auto-select (`plan/05 §6`) replaces it in M3.
-        let settings = Settings {
-            model: Some("llama3:8b".to_owned()),
-            ..Settings::default()
-        };
-        Self::with_settings(settings, window, cx)
+        Self::with_settings(Settings::default(), window, cx)
     }
 
     pub fn with_settings(settings: Settings, window: &mut Window, cx: &mut Context<Self>) -> Self {
@@ -82,6 +109,7 @@ impl Dislexia {
                 .submit_on_enter(true)
                 .placeholder("Paste text to fix, or ask anything…")
         });
+        let settings_ui = settings_ui::build_state(&settings, window, cx);
 
         let subscriptions = vec![cx.subscribe_in(
             &input,
@@ -102,15 +130,86 @@ impl Dislexia {
             },
         )];
 
-        Self {
+        // Every settings field commits on change; persistence is debounced.
+        for state in [
+            settings_ui.server_url.clone(),
+            settings_ui.temperature.clone(),
+            settings_ui.top_p.clone(),
+            settings_ui.top_k.clone(),
+            settings_ui.num_predict.clone(),
+            settings_ui.num_ctx.clone(),
+            settings_ui.repeat_penalty.clone(),
+            settings_ui.seed.clone(),
+        ] {
+            cx.subscribe(&state, |this, _, event: &InputEvent, cx| {
+                if matches!(event, InputEvent::Change) {
+                    this.commit_settings(cx);
+                }
+            })
+            .detach();
+        }
+        cx.subscribe(
+            &settings_ui.system_prompt,
+            |this, _, event: &InputEvent, cx| {
+                if matches!(event, InputEvent::Change) {
+                    this.commit_settings(cx);
+                }
+            },
+        )
+        .detach();
+        cx.subscribe(
+            &settings_ui.model,
+            |this, _, event: &SelectEvent<Vec<SharedString>>, cx| {
+                let SelectEvent::Confirm(value) = event;
+                this.settings.model = value.as_ref().map(|value| {
+                    // The "missing on server" marker is presentation only.
+                    value.trim_end_matches(" (missing on server)").to_owned()
+                });
+                this.schedule_save(cx);
+                cx.notify();
+            },
+        )
+        .detach();
+
+        let mut this = Self {
             store,
             input,
             scroll: ScrollHandle::new(),
             settings,
+            settings_ui,
+            save_generation: 0,
             generation: None,
             input_empty: true,
+            window: None,
             _subscriptions: subscriptions,
+        };
+        this.first_run_check(cx);
+        this
+    }
+
+    /// First-run experience (`plan/05 §6`): without a stored model, probe
+    /// `/api/tags` and auto-select the first model.
+    fn first_run_check(&mut self, cx: &mut Context<Self>) {
+        let probe_needed = self.settings.model.is_none();
+        self.refresh_models(cx);
+        if !probe_needed {
+            return;
         }
+        cx.spawn(async move |this, cx| {
+            let first = probe_first_model(&this, cx).await;
+            this.update(cx, |this, cx| {
+                if let Some(first) = first
+                    && this.settings.model.is_none()
+                {
+                    this.settings.model = Some(first.clone());
+                    this.schedule_save(cx);
+                    log::info!("first run: auto-selected model {first}");
+                    cx.notify();
+                }
+            })
+            .ok();
+        })
+        .detach();
     }
 
     pub fn store(&self) -> &Entity<ChatStore> {
@@ -143,6 +242,11 @@ impl Dislexia {
             .unwrap_or_else(|| "no model".to_owned())
     }
 
+    /// Handle for callbacks inside the settings dialog.
+    pub fn weak_handle(&self, cx: &Context<Self>) -> WeakEntity<Self> {
+        cx.entity().downgrade()
+    }
+
     pub fn handle_new_chat(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         self.store.update(cx, |store, _| store.new_chat());
         cx.notify();
@@ -165,6 +269,182 @@ impl Dislexia {
         let input = self.input.clone();
         window.defer(cx, move |window, cx| {
             input.update(cx, |state, cx| state.focus(window, cx));
+        });
+    }
+
+    /// Re-reads every settings editor into `self.settings`, records field
+    /// errors and schedules the debounced save (`plan/05 §3–4`).
+    fn commit_settings(&mut self, cx: &mut Context<Self>) {
+        let raw_server_url = self.settings_ui.server_url.read(cx).value().to_string();
+        match settings::normalize_server_url(&raw_server_url) {
+            Ok(url) => {
+                self.settings.server_url = url;
+                self.settings_ui.url_error = None;
+            }
+            Err(message) => self.settings_ui.url_error = Some(message),
+        }
+
+        self.settings.system_prompt = self.settings_ui.system_prompt.read(cx).value().to_string();
+
+        let mut errors: Vec<&'static str> = Vec::new();
+        let read = |state: &Entity<InputState>| state.read(cx).value().trim().to_string();
+
+        // Bounded f64s and plain integers. An invalid field keeps its last
+        // good value and gets an inline hint (`plan/05 §3`); empty means
+        // "not sent".
+        let commit_f64 = |raw: String,
+                          min: f64,
+                          max: f64,
+                          field: &'static str,
+                          errors: &mut Vec<&'static str>| {
+            if raw.is_empty() {
+                return None;
+            }
+            match raw
+                .parse::<f64>()
+                .ok()
+                .filter(|value| (*value >= min) && (*value <= max))
+            {
+                Some(value) => Some(value),
+                None => {
+                    errors.push(field);
+                    None
+                }
+            }
+        };
+        let ui = &self.settings_ui;
+        let options = &mut self.settings.options;
+        options.temperature = commit_f64(read(&ui.temperature), 0., 2., "temperature", &mut errors);
+        options.top_p = commit_f64(read(&ui.top_p), 0., 1., "top_p", &mut errors);
+        options.repeat_penalty = commit_f64(
+            read(&ui.repeat_penalty),
+            0.,
+            3.,
+            "repeat_penalty",
+            &mut errors,
+        );
+        options.top_k = commit_int(read(&ui.top_k), "top_k", &mut errors);
+        options.num_predict = commit_int::<i32>(read(&ui.num_predict), "num_predict", &mut errors);
+        options.num_ctx = commit_int(read(&ui.num_ctx), "num_ctx", &mut errors);
+        options.seed = commit_int::<i64>(read(&ui.seed), "seed", &mut errors);
+
+        self.settings_ui.option_errors = errors;
+        self.schedule_save(cx);
+        cx.notify();
+    }
+
+    /// Restores the embedded text-fixer prompt (`plan/05 §1.1`).
+    pub fn reset_prompt(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        let default = settings::DEFAULT_SYSTEM_PROMPT.to_owned();
+        self.settings.system_prompt = default.clone();
+        self.settings_ui.system_prompt.update(cx, |state, cx| {
+            state.set_value(&default, window, cx);
+        });
+        self.schedule_save(cx);
+        cx.notify();
+    }
+
+    /// Writes settings to disk after `SAVE_DEBOUNCE` of quiet; the write
+    /// itself runs on the background executor (`plan/05 §4`).
+    fn schedule_save(&mut self, cx: &mut Context<Self>) {
+        self.save_generation += 1;
+        let generation = self.save_generation;
+        cx.spawn(async move |this, cx| {
+            cx.background_executor().timer(SAVE_DEBOUNCE).await;
+            this.update(cx, |this, cx| {
+                if this.save_generation != generation {
+                    return; // superseded by a newer edit
+                }
+                let settings = this.settings.clone();
+                cx.background_executor()
+                    .spawn(async move {
+                        if let Err(error) = settings::save(&settings) {
+                            log::error!("cannot save settings: {error:#}");
+                        }
+                    })
+                    .detach();
+            })
+            .ok();
+        })
+        .detach();
+    }
+
+    /// `GET /api/tags` in the background; repopulates the model dropdown
+    /// (`plan/05 §5`).
+    pub fn refresh_models(&mut self, cx: &mut Context<Self>) {
+        let server_url = self.settings.server_url.clone();
+        cx.spawn(async move |this, cx| {
+            let result = list_models_background(&server_url, cx).await;
+            this.update(cx, |this, cx| match result {
+                Ok(models) => {
+                    this.settings_ui.models = models;
+                    this.sync_model_select(cx);
+                    cx.notify();
+                }
+                Err(error) => log::debug!("cannot list models: {error:?}"),
+            })
+            .ok();
+        })
+        .detach();
+    }
+
+    /// Connection test against `/api/tags` (`plan/05 §6`).
+    pub fn test_connection(&mut self, cx: &mut Context<Self>) {
+        self.settings_ui.status = ConnectionStatus::Testing;
+        cx.notify();
+
+        let server_url = self.settings.server_url.clone();
+        cx.spawn(async move |this, cx| {
+            let result = list_models_background(&server_url, cx).await;
+            this.update(cx, |this, cx| {
+                this.settings_ui.status = match &result {
+                    Ok(models) => ConnectionStatus::Connected(models.len()),
+                    Err(error) => ConnectionStatus::Failed(user_error_message(
+                        error,
+                        &this.settings.server_url,
+                        this.settings.model.as_deref().unwrap_or(""),
+                    )),
+                };
+                if let Ok(models) = &result {
+                    this.settings_ui.models = models.clone();
+                    this.sync_model_select(cx);
+                }
+                cx.notify();
+            })
+            .ok();
+        })
+        .detach();
+    }
+
+    /// Pushes `settings_ui.models` into the dropdown, marking a stored model
+    /// that is missing on the server (`plan/05 §3`). The editors are
+    /// window-bound, so the update hops through the window handle.
+    fn sync_model_select(&mut self, cx: &mut Context<Self>) {
+        let models = self.settings_ui.models.clone();
+        let selected = self.settings.model.clone();
+        let mut items: Vec<SharedString> =
+            models.iter().map(|model| model.clone().into()).collect();
+        let mut index = models
+            .iter()
+            .position(|model| Some(model) == selected.as_ref());
+        if let Some(model) = &selected
+            && index.is_none()
+        {
+            items.push(format!("{model} (missing on server)").into());
+            index = Some(items.len() - 1);
+        }
+        let Some(handle) = self.window else {
+            return;
+        };
+        let _ = handle.update(cx, |_root, window, cx| {
+            self.settings_ui.model.update(cx, |state, cx| {
+                state.set_items(items, window, cx);
+                state.set_selected_index(
+                    index.map(|row| gpui_kit::component::IndexPath::default().row(row)),
+                    window,
+                    cx,
+                );
+            });
         });
     }
 
@@ -247,7 +527,7 @@ impl Dislexia {
         let server_url = self.settings.server_url.clone();
         let model = self.settings.model.clone().unwrap_or_default();
         let client = match OllamaClient::new(&server_url) {
-            Ok(client) => std::sync::Arc::new(client),
+            Ok(client) => Arc::new(client),
             Err(error) => {
                 let message = user_error_message(&error, &server_url, &model);
                 self.store
@@ -337,8 +617,37 @@ impl Dislexia {
     }
 }
 
+/// Fetches `/api/tags` off the main thread.
+async fn list_models_background(
+    server_url: &str,
+    cx: &mut AsyncApp,
+) -> Result<Vec<String>, OllamaError> {
+    let client = OllamaClient::new(server_url)?;
+    cx.background_executor()
+        .spawn(async move { client.list_models() })
+        .await
+}
+
+/// First-run probe: the first installed model for auto-select (`plan/05 §6`).
+async fn probe_first_model(this: &WeakEntity<Dislexia>, cx: &mut AsyncApp) -> Option<String> {
+    let server_url = this
+        .upgrade()?
+        .read_with(cx, |this, _| this.settings.server_url.clone());
+    let models = list_models_background(&server_url, cx).await.ok()?;
+    let first = models.into_iter().next()?;
+    this.update(cx, |this, cx| {
+        this.settings_ui.models = Vec::new();
+        this.refresh_models(cx);
+    })
+    .ok()?;
+    Some(first)
+}
+
 impl Render for Dislexia {
-    fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+    fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+        if self.window.is_none() {
+            self.window = Some(window.window_handle());
+        }
         let theme = cx.theme();
         v_flex()
             .id("root")
@@ -349,22 +658,53 @@ impl Render for Dislexia {
             .on_action(
                 cx.listener(|this, _: &StopGeneration, window, cx| this.handle_stop(window, cx)),
             )
+            .on_action(cx.listener(|this, _: &OpenSettings, window, cx| {
+                settings_ui::open(this, window, cx);
+            }))
             .size_full()
             .bg(theme.background)
             .text_color(theme.foreground)
             .child(
                 TitleBar::new().child(
                     h_flex()
-                        .px_2()
-                        .gap_2()
-                        .child("Dislexia")
-                        .text_color(theme.muted_foreground)
+                        .w_full()
+                        .items_center()
                         .child(
-                            h_flex().font_family(theme.mono_font_family.clone()).child(
-                                div()
-                                    .text_size(px(12.))
-                                    .child(format!("· {}", self.model_label())),
-                            ),
+                            h_flex()
+                                .px_2()
+                                .gap_2()
+                                .child("Dislexia")
+                                .text_color(theme.muted_foreground)
+                                .child(
+                                    h_flex().font_family(theme.mono_font_family.clone()).child(
+                                        div()
+                                            .text_size(px(12.))
+                                            .child(format!("· {}", self.model_label())),
+                                    ),
+                                ),
+                        )
+                        .child(
+                            h_flex()
+                                .ml_auto()
+                                .gap_1()
+                                .child(
+                                    Button::new("title-new-chat")
+                                        .small()
+                                        .ghost()
+                                        .icon(Icon::new(IconName::Plus))
+                                        .on_click(cx.listener(|this, _, window, cx| {
+                                            this.handle_new_chat(window, cx);
+                                        })),
+                                )
+                                .child(
+                                    Button::new("title-settings")
+                                        .small()
+                                        .ghost()
+                                        .icon(Icon::new(IconName::Settings))
+                                        .on_click(cx.listener(|this, _, window, cx| {
+                                            settings_ui::open(this, window, cx);
+                                        })),
+                                ),
                         ),
                 ),
             )

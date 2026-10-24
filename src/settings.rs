@@ -1,7 +1,8 @@
-//! Settings schema and defaults (`plan/05-settings.md`). Load/save with
-//! atomic writes lands in M3; the schema is here already because the request
-//! builder and the app wiring consume it.
+//! Settings schema, defaults and persistence (`plan/05-settings.md`).
 
+use std::path::PathBuf;
+
+use anyhow::Result;
 use serde::{Deserialize, Serialize};
 
 /// The default system prompt: the text-fixer persona, embedded at compile
@@ -48,6 +49,59 @@ impl Default for Settings {
             launch_at_login: false,
         }
     }
+}
+
+/// The app data directory: `~/Library/Application Support/dislexia/`
+/// (`plan/02 §6`). `HOME` is read directly — the app is macOS-only and
+/// never sandboxed.
+pub fn data_dir() -> PathBuf {
+    let home = std::env::var_os("HOME")
+        .map(PathBuf::from)
+        .expect("HOME is set on macOS");
+    home.join("Library")
+        .join("Application Support")
+        .join("dislexia")
+}
+
+pub fn settings_path() -> PathBuf {
+    data_dir().join("settings.json")
+}
+
+/// Loads settings; a missing file means defaults, a corrupt one means
+/// defaults + a warning (`plan/05 §4`) — never a crash on launch.
+pub fn load() -> Settings {
+    load_from(&settings_path())
+}
+
+pub fn load_from(path: &std::path::Path) -> Settings {
+    match std::fs::read_to_string(path) {
+        Ok(text) => serde_json::from_str(&text).unwrap_or_else(|error| {
+            log::warn!("settings.json is unreadable ({}), using defaults", error);
+            Settings::default()
+        }),
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => Settings::default(),
+        Err(error) => {
+            log::warn!("cannot read settings.json ({}), using defaults", error);
+            Settings::default()
+        }
+    }
+}
+
+/// Persists settings atomically: write `settings.json.tmp`, then rename
+/// over the target (`plan/05 §4`) — never a partially-written file.
+pub fn save(settings: &Settings) -> Result<()> {
+    save_to(&settings_path(), settings)
+}
+
+pub fn save_to(path: &std::path::Path, settings: &Settings) -> Result<()> {
+    if let Some(dir) = path.parent() {
+        std::fs::create_dir_all(dir)?;
+    }
+    let json = serde_json::to_string_pretty(settings)?;
+    let tmp = path.with_extension("json.tmp");
+    std::fs::write(&tmp, json)?;
+    std::fs::rename(&tmp, path)?;
+    Ok(())
 }
 
 /// Normalizes a server URL on save (`plan/05 §3`): trim, strip trailing
@@ -120,6 +174,42 @@ mod tests {
                 ..Settings::default()
             }
         );
+    }
+
+    #[test]
+    fn save_and_load_round_trip_through_a_file() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("settings.json");
+        let settings = Settings {
+            model: Some("llama3:8b".to_owned()),
+            options: crate::settings::ModelOptions {
+                temperature: Some(0.7),
+                top_k: Some(40),
+                ..crate::settings::ModelOptions::default()
+            },
+            ..Settings::default()
+        };
+        save_to(&path, &settings).unwrap();
+        assert_eq!(load_from(&path), settings);
+        // No temp file left behind.
+        assert!(!path.with_extension("json.tmp").exists());
+    }
+
+    #[test]
+    fn missing_file_means_defaults() {
+        let dir = tempfile::tempdir().unwrap();
+        assert_eq!(
+            load_from(&dir.path().join("settings.json")),
+            Settings::default()
+        );
+    }
+
+    #[test]
+    fn corrupt_file_means_defaults_not_a_crash() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("settings.json");
+        std::fs::write(&path, "{not json").unwrap();
+        assert_eq!(load_from(&path), Settings::default());
     }
 
     #[test]

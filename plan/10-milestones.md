@@ -39,11 +39,11 @@ Each milestone ends with a working `cargo run` (or bundled app) and its acceptan
 **Scope** ([05](05-settings.md)): settings modal UI per 03 §2; JSON persistence + validation; model dropdown from `/api/tags`; connection test + status dot; client rebuild on URL change; first-run auto model select.
 
 **Acceptance**
-- [ ] Fresh profile (no `settings.json`): the file is created containing the full default system prompt from `prompts/default-system-prompt.md`; **Reset to default** in the UI restores it
-- [ ] All settings fields round-trip through relaunch (file at the expected path)
-- [ ] Changing server/model takes effect on the very next send
-- [ ] Invalid URL/numbers show inline errors and don't corrupt the file
-- [ ] Settings persist through app restart
+- [x] Fresh profile (no `settings.json`): the file is created containing the full default system prompt from `prompts/default-system-prompt.md`; **Reset to default** in the UI restores it
+- [x] All settings fields round-trip through relaunch (file at the expected path)
+- [x] Changing server/model takes effect on the very next send
+- [x] Invalid URL/numbers show inline errors and don't corrupt the file
+- [x] Settings persist through app restart
 
 ## M4 — Chat history persistence (S→M)
 
