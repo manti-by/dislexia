@@ -7,9 +7,6 @@ use std::rc::Rc;
 
 use gpui_kit::component::{Theme, ThemeConfig, ThemeRegistry};
 
-const THEME_NAME_DARK: &str = "Dislexia Dark";
-const THEME_NAME_LIGHT: &str = "Dislexia Light";
-
 /// Dark palette (`plan/07 §3`): near-black blue-leaning background,
 /// low-contrast chrome, one blue accent used sparingly.
 const DARK_JSON: &str = r##"{
