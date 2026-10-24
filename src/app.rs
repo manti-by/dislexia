@@ -169,10 +169,11 @@ impl Dislexia {
     pub fn with_settings(settings: Settings, window: &mut Window, cx: &mut Context<Self>) -> Self {
         let store = cx.new(|_| ChatStore::load(&crate::history::chats_dir()));
         let input = cx.new(|cx| {
+            // Multiline composer, min 4 rows (zcode-like, plan/03 §1).
             TextareaState::new(window, cx)
-                .auto_grow(1, 6)
+                .auto_grow(4, 12)
                 .submit_on_enter(true)
-                .placeholder("Paste text to fix, or ask anything…")
+                .placeholder("Paste text to fix, or ask anything… (Enter to send, Shift+Enter for a newline)")
         });
         let settings_ui = settings_ui::build_state(&settings, window, cx);
 

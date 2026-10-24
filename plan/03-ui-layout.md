@@ -36,7 +36,7 @@ The look is **zcode-like**: dark-first, terminal density, quiet chrome, monospac
 | Sidebar (240px) | `div().flex().flex_col()` + kit `List` | "New chat" button at top; grouped chat list (Today / Yesterday / Older — see 06 §4); bottom: settings entry + server status dot (green/red). Collapsible via `Cmd+B` (stretch). |
 | Transcript | kit `List` (virtualized) | Uniform full-width column, max ~72ch readable measure. Auto-scroll to bottom while streaming unless the user scrolled up. |
 | Message row | custom light wrapper (see §2) | No chat bubbles on the assistant side — flat blocks, zcode-style. |
-| Input area | kit `TextArea` (auto-grow 1–6 rows) + kit `Button` | `Enter` sends; `Shift+Enter` newline. While streaming the button becomes **Stop** (destructive variant). Disabled (dimmed) while streaming. |
+| Input area | kit `TextArea` (auto-grow 4–12 rows) inside a floating rounded box at the window bottom; the Send/Stop button is overlaid inside the box's bottom-right corner (zcode-like; changed from the original border-top bar in M7 polish) | `Enter` sends; `Shift+Enter` newline. While streaming the button becomes **Stop** (destructive variant). Disabled (dimmed) while streaming. |
 
 ### Message row anatomy
 
