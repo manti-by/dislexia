@@ -1,1 +1,1 @@
-// Implemented in M1 — see plan/03-ui-layout.md.
+//! Settings dialog — implemented in M3 (see `plan/05-settings.md`).

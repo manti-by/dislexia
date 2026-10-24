@@ -3,7 +3,6 @@
 //! Boot order only: logging → theme → settings/history → tray → open window.
 //! All logic lives in `src/lib.rs` behind `dislexia::`.
 
-use gpui_kit::component::TitleBar;
 use gpui_kit::*;
 
 fn main() {
@@ -12,16 +11,12 @@ fn main() {
     application().run(|cx| {
         gpui_kit::init(cx);
 
-        let root = cx.new(|_| dislexia::app::Dislexia::new());
+        // Global shortcuts (`plan/03 §7`); per-window actions dispatch to the
+        // root entity's `on_action` handlers.
+        cx.bind_keys([KeyBinding::new("cmd-n", dislexia::app::NewChat, None)]);
 
-        let options = WindowOptions {
-            window_min_size: Some(Size {
-                width: px(720.),
-                height: px(480.),
-            }),
-            ..TitleBar::window_options()
-        };
-        dislexia::ui::open_main_window(root, options, cx).expect("failed to open main window");
+        dislexia::ui::open_main_window(dislexia::ui::window_options(cx), cx)
+            .expect("failed to open main window");
 
         cx.activate(true);
     });

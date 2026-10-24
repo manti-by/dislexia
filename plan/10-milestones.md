@@ -19,10 +19,10 @@ Each milestone ends with a working `cargo run` (or bundled app) and its acceptan
 **Scope** ([03](03-ui-layout.md)): sidebar + transcript + input area + send button rendered with kit components; sending appends a local echo "assistant" message (canned multi-chunk fake stream with `std::thread::sleep` on the background executor — exercises the streaming rendering path); new-chat switching between in-memory chats; markdown rendering for assistant text.
 
 **Acceptance**
-- [ ] Layout matches §1 of 03 (review against the ASCII mock)
-- [ ] Fake stream renders incrementally with cursor, then completes
-- [ ] Sidebar switches chats; active highlight works
-- [ ] Enter/Shift+Enter behave; Send disables on empty/streaming
+- [x] Layout matches §1 of 03 (review against the ASCII mock)
+- [x] Fake stream renders incrementally with cursor, then completes
+- [x] Sidebar switches chats; active highlight works
+- [x] Enter/Shift+Enter behave; Send disables on empty/streaming
 
 ## M2 — Real Ollama chat (M)
 

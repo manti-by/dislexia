@@ -5,6 +5,7 @@
 //! matching `plan/0N-*.md` before changing a module.
 
 pub mod app;
+pub mod history;
 pub mod ollama;
 pub mod platform;
 pub mod settings;
