@@ -5,23 +5,21 @@ default persona is a **writing fixer**: paste rough text, get it back
 corrected — spelling and wording fixed, old-fashioned words modernized,
 simplified yet formal.
 
-Built in Rust with [GPUI](https://gpui.rs) via [GPUI Kit](https://gpui-kit.com); the visual language is dark-first and terminal-like
-(zcode-ish), built from stock components.
+Built in Rust with [GPUI](https://gpui.rs) via [GPUI Kit](https://gpui-kit.com); the visual language is dark-first 
+and terminal-like (zcode-ish), built from stock components.
 
 ## Features
 
-- **Streaming chat** against a local Ollama server — responses render
-  token-by-token, with a Stop button that keeps the partial text.
-- **Text-fixer system prompt by default** ([prompts/default-system-prompt.md](prompts/default-system-prompt.md)), editable in Settings; your edits always win.
-- **Chat history** — one JSON file per chat, sidebar grouped
-  Today / Yesterday / Previous 7 days / Older, delete with confirm.
-- **Settings** (`cmd-,`) — server URL with connection test, model dropdown
-  from `/api/tags`, temperature / top-p / top-k / context options; changes
-  take effect on the very next send.
-- **Lives in the tray** — closing the window (`cmd-w` or the red button)
-  keeps the app running without a Dock icon; the tray icon reopens it,
-  starts a new chat, or quits. In-flight generations finish in the
-  background.
+- **Streaming chat** against a local Ollama server — responses render token-by-token, with a Stop button that keeps the 
+partial text.
+- **Text-fixer system prompt by default** ([prompts/default-system-prompt.md](prompts/default-system-prompt.md)), 
+editable in Settings; your edits always win.
+- **Chat history** — one JSON file per chat, sidebar grouped Today / Yesterday / Previous 7 days / Older, delete with 
+confirm.
+- **Settings** (`cmd-,`) — server URL with connection test, model dropdown from `/api/tags`, temperature / top-p / 
+top-k / context options; changes take effect on the very next send.
+- **Lives in the tray** — closing the window (`cmd-w` or the red button) keeps the app running without a Dock icon; the 
+tray icon reopens it, starts a new chat, or quits. In-flight generations finish in the background.
 - **Follows the OS light/dark appearance** live.
 
 ## Requirements
@@ -55,9 +53,9 @@ The bundle is ad-hoc signed for local use.
 
 ## Releases
 
-CI builds the macOS app on every version bump: merge a `version` bump in `Cargo.toml` to `master` and a
-zipped, ad-hoc-signed `Dislexia.app` (Apple Silicon + Intel) is published as a GitHub release. Every push
-runs the `make check` gate first.
+CI builds the macOS app on every version bump: merge a `version` bump in `Cargo.toml` to `master` and a zipped, 
+ad-hoc-signed `Dislexia.app` (Apple Silicon + Intel) is published as a GitHub release. Every push runs the `make check` 
+gate first.
 
 ## Data
 
@@ -67,14 +65,13 @@ are renamed `.bad`, never deleted).
 
 ## Credits & license
 
-- Icon: "typewriter" from [Material Design Icons](https://pictogrammers.com/library/mdi/icon/typewriter/) (Apache-2.0), single source for the
-  app icon and the tray template.
+- Icon: "typewriter" from [Material Design Icons](https://pictogrammers.com/library/mdi/icon/typewriter/) (Apache-2.0), 
+single source for the app icon and the tray template.
 - UI: [GPUI Kit](https://gpui-kit.com) and the GPUI it pins.
 - License: BSD-3-Clause.
 
 ## Architecture
 
-The implementation contract lives in [BUILD_PLAN.md](BUILD_PLAN.md) and
-`plan/` — module map, schemas, palette, error wording, milestones and the
-verified GPUI Kit API shapes (plan/api-notes.md). [AGENTS.md](AGENTS.md)
-summarizes the working conventions.
+The implementation contract lives in [BUILD_PLAN.md](BUILD_PLAN.md) and `plan/` — module map, schemas, palette, error 
+wording, milestones and the verified GPUI Kit API shapes (plan/api-notes.md). [AGENTS.md](AGENTS.md) summarizes the 
+working conventions.

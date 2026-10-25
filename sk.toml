@@ -1,0 +1,18 @@
+[project]
+name = "dislexia"
+version = "0.1.0"
+description = "macOS menu-bar chat client for local Ollama model"
+readme = "README.md"
+license = "BSD-3-Clause"
+authors = ["Alexander Chaika"]
+keywords = ["ollama", "macos", "llm"]
+
+[dependencies]
+skills = [
+  "https://github.com/manti-by/openwiki/tree/master/skills/wiki-agents-file",
+  "https://github.com/manti-by/openwiki/tree/master/skills/wiki-archive",
+  "https://github.com/manti-by/openwiki/tree/master/skills/wiki-consistency",
+  "https://github.com/manti-by/openwiki/tree/master/skills/wiki-dedup",
+  "https://github.com/manti-by/openwiki/tree/master/skills/wiki-sync",
+  "https://github.com/mattpocock/skills/tree/main/skills/engineering/code-review",
+]

@@ -11,7 +11,7 @@ A macOS menu-bar chat app for local Ollama models, written in Rust with [GPUI](h
 Dislexia is a lightweight native macOS client that talks to a **local Ollama server**. Its default persona is a **writing fixer**: the user pastes rough text, the model returns it corrected — spelling and wording fixed, old-fashioned words modernized, simplified yet more formal.
 
 - A chat window with a **message input and a Send button**. Sending a message compiles a request from:
-  - **System prompt** — configured in Settings; the default (the text-fixer prompt at [prompts/default-system-prompt.md](prompts/default-system-prompt.md)) is embedded at compile time
+  - **System prompt** — configured in Settings; the default (the text-fixer prompt at [default-system-prompt.md](../../prompts/default-system-prompt.md)) is embedded at compile time
   - **User prompt** — from the input field (plus prior conversation history)
   - **Model & model options** (temperature, top_p, …) — configured in Settings
   - **Server URL** — configured in Settings (default `http://127.0.0.1:11434`)
@@ -72,16 +72,16 @@ Details: [01-architecture.md](plan/01-architecture.md).
 
 | Doc | Contents |
 |-----|----------|
-| [01-architecture.md](plan/01-architecture.md) | Module map, state ownership, concurrency model, send-a-message sequence |
-| [02-project-setup.md](plan/02-project-setup.md) | Cargo project, dependencies, toolchain, `.app` bundling, Info.plist, dev workflow |
-| [03-ui-layout.md](plan/03-ui-layout.md) | Window layout, screens, component mapping (zcode-like look), shortcuts, empty states |
-| [04-ollama-client.md](plan/04-ollama-client.md) | Endpoints, request/response schemas, NDJSON streaming loop, cancellation, error taxonomy |
-| [05-settings.md](plan/05-settings.md) | Settings schema, defaults, storage format, settings UI fields |
-| [06-chat-history.md](plan/06-chat-history.md) | Chat/message data model, persistence format, sidebar listing, lifecycle |
-| [07-theme.md](plan/07-theme.md) | OS appearance tracking, light/dark palette (zcode-like), tray icon adaptation |
-| [08-tray-and-lifecycle.md](plan/08-tray-and-lifecycle.md) | Tray icon + menu, close-to-background, Dock icon policy, reopen & quit flows, known risks |
-| [09-testing.md](plan/09-testing.md) | Unit/integration test plan (mock Ollama server), manual QA checklist |
-| [10-milestones.md](plan/10-milestones.md) | Build order M0–M7 with acceptance criteria, risk register |
+| [01-architecture.md](01-architecture.md) | Module map, state ownership, concurrency model, send-a-message sequence |
+| [02-project-setup.md](02-project-setup.md) | Cargo project, dependencies, toolchain, `.app` bundling, Info.plist, dev workflow |
+| [03-ui-layout.md](03-ui-layout.md) | Window layout, screens, component mapping (zcode-like look), shortcuts, empty states |
+| [04-ollama-client.md](04-ollama-client.md) | Endpoints, request/response schemas, NDJSON streaming loop, cancellation, error taxonomy |
+| [05-settings.md](05-settings.md) | Settings schema, defaults, storage format, settings UI fields |
+| [06-chat-history.md](06-chat-history.md) | Chat/message data model, persistence format, sidebar listing, lifecycle |
+| [07-theme.md](07-theme.md) | OS appearance tracking, light/dark palette (zcode-like), tray icon adaptation |
+| [08-tray-and-lifecycle.md](08-tray-and-lifecycle.md) | Tray icon + menu, close-to-background, Dock icon policy, reopen & quit flows, known risks |
+| [09-testing.md](09-testing.md) | Unit/integration test plan (mock Ollama server), manual QA checklist |
+| [10-milestones.md](10-milestones.md) | Build order M0–M7 with acceptance criteria, risk register |
 
 ---
 
@@ -122,7 +122,6 @@ dislexia/
 │   ├── tray.rs                # tray icon, menu, event forwarding (08)
 │   └── platform/
 │       └── macos.rs           # objc2: activation policy, activate app
-└── plan/                      # this build plan
 ```
 
 ---
@@ -135,8 +134,8 @@ dislexia/
 4. **Runtime Dock-icon toggling** (`NSApplicationActivationPolicy::Regular` ↔ `Accessory`) instead of `LSUIElement=true` in Info.plist, so the app still looks like a normal app while its window is open.
 5. **Streaming always on** (`"stream": true`); no non-streaming code path.
 6. State is chat-sent in full every turn (Ollama `/api/chat` is stateless); we do **not** track Ollama `context` tokens in v1.
-7. **App icon**: the minimal monochrome **typewriter** glyph [`media/icon-typewriter.svg`](media/icon-typewriter.svg) (Material Design Icons, Apache-2.0). Every icon the app uses — bundle `.icns` and tray template PNGs — is generated from this single SVG by `scripts/make-icons.sh` (see [media/README.md](media/README.md) and [02-project-setup.md](plan/02-project-setup.md) §7).
-8. **Default system prompt** = the text-fixer prompt at [`prompts/default-system-prompt.md`](prompts/default-system-prompt.md), embedded with `include_str!` and used as the Settings default ([05-settings.md](plan/05-settings.md) §1.1). User edits always win; the app never overwrites a saved prompt.
+7. **App icon**: the minimal monochrome **typewriter** glyph [`media/icon-typewriter.svg`](media/icon-typewriter.svg) (Material Design Icons, Apache-2.0). Every icon the app uses — bundle `.icns` and tray template PNGs — is generated from this single SVG by `scripts/make-icons.sh` (see [media/README.md](media/README.md) and [02-project-setup.md](02-project-setup.md) §7).
+8. **Default system prompt** = the text-fixer prompt at [`prompts/default-system-prompt.md`](prompts/default-system-prompt.md), embedded with `include_str!` and used as the Settings default ([05-settings.md](05-settings.md) §1.1). User edits always win; the app never overwrites a saved prompt.
 
 ## 7. Milestone summary
 
@@ -151,4 +150,4 @@ dislexia/
 | M6 | Tray + background lifecycle (close → tray, reopen, quit) | M0 |
 | M7 | Polish & packaging: `.app` bundle, icon, shortcuts, copy, QA pass | all |
 
-Detailed scope and acceptance criteria: [10-milestones.md](plan/10-milestones.md).
+Detailed scope and acceptance criteria: [10-milestones.md](10-milestones.md).

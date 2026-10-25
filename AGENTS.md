@@ -4,12 +4,13 @@ Guidance for agents and contributors working on `dislexia` itself.
 
 ## What this project is
 
-`dislexia` is a macOS menu-bar chat app for a **local Ollama server**, written in Rust with [GPUI](https://gpui.rs) via [GPUI Kit](https://gpui-kit.com). Its
-default persona is a **writing fixer**: the user pastes rough text, the model returns it corrected — spelling and wording fixed, old-fashioned words
-modernized, simplified yet more formal. Rust, edition 2024, stable ≥ 1.85.
+`dislexia` is a macOS menu-bar chat app for a **local Ollama server**, written in Rust with [GPUI](https://gpui.rs) 
+via [GPUI Kit](https://gpui-kit.com). Its default persona is a **writing fixer**: the user pastes rough text, the model 
+returns it corrected — spelling and wording fixed, old-fashioned words modernized, simplified yet more formal. Rust, 
+edition 2024, stable ≥ 1.85.
 
-The implementation contract lives in [BUILD_PLAN.md](BUILD_PLAN.md) and `plan/` — read the matching `plan/0N-*.md` before changing a module. Keep the
-plan true when implementation diverges.
+The implementation contract lives in [BUILD_PLAN.md](wiki/plan/BUILD_PLAN.md) and `wiki/plan/` — read the matching 
+`wiki/plan/0N-*.md` before changing a module. Keep the plan true when implementation diverges.
 
 ## Commands
 
@@ -51,23 +52,27 @@ and history work without one.
 
 ## Conventions
 
-- **The plan is the contract.** `plan/` documents every schema, palette value, error wording and acceptance criterion. When code and plan disagree, either
-  fix the code or update the plan in the same change — never leave them diverging silently.
-- **`ollama/` stays GPUI-free.** It is pure blocking Rust over `ureq` 3 (no tokio), so it unit-tests and integration-tests without a window. NDJSON is
-  line-oriented; the streaming loop is a blocking `BufRead` on GPUI's background executor, checking the cancellation flag between lines.
-- **No hard-coded colors outside `theme.rs`.** Views read the GPUI Kit theme (`ActiveTheme`); `src/theme.rs` owns the only hex values. The acceptance gate
-  is `rg '#[0-9a-fA-F]{6}' src/ui` → empty.
-- **Atomic file writes** for settings and chat files: write `.tmp`, `fs::rename`. Persist chats at message granularity, never per chunk; corrupt chat files
-  are renamed `.bad` and skipped, never deleted.
-- **User-visible errors live in entities** (a `MessageStatus::Error(String)`), never only in the log, so the UI can always render them.
-- Errors in `ollama/` are `thiserror` (`OllamaError`); everything else uses `anyhow` internally. Error wording shown to users comes from the mapping table
-  in `plan/04-ollama-client.md` §7 — keep the strings in one place (`ollama/client.rs`).
-- Every module that can be tested in isolation carries a `#[cfg(test)] mod tests` block. Stream parsing, request building, settings validation and the
-  history store are the high-risk areas and must stay covered.
-- Dependencies stay minimal on purpose: `gpui-kit`, `ureq`, `serde`/`serde_json`, `uuid`, `chrono`, `tray-icon`, `objc2*`, `image`, `anyhow`, `thiserror`,
-  `log`/`env_logger`. No async runtime.
-- GPUI API drift is real: names in `plan/` marked "verify" were checked against the `gpui-kit`-pinned GPUI at M0. When upgrading `gpui-kit`, re-verify
-  `Application`, `open_window`, theme init and `component` paths first.
+- **The plan is the contract.** `plan/` documents every schema, palette value, error wording and acceptance criterion. 
+When code and plan disagree, either fix the code or update the plan in the same change — never leave them diverging 
+silently.
+- **`ollama/` stays GPUI-free.** It is pure blocking Rust over `ureq` 3 (no tokio), so it unit-tests and 
+integration-tests without a window. NDJSON is line-oriented; the streaming loop is a blocking `BufRead` on GPUI's 
+background executor, checking the cancellation flag between lines.
+- **No hard-coded colors outside `theme.rs`.** Views read the GPUI Kit theme (`ActiveTheme`); `src/theme.rs` owns the 
+only hex values. The acceptance gate is `rg '#[0-9a-fA-F]{6}' src/ui` → empty.
+- **Atomic file writes** for settings and chat files: write `.tmp`, `fs::rename`. Persist chats at message granularity, 
+never per chunk; corrupt chat files are renamed `.bad` and skipped, never deleted.
+- **User-visible errors live in entities** (a `MessageStatus::Error(String)`), never only in the log, so the UI can 
+always render them.
+- Errors in `ollama/` are `thiserror` (`OllamaError`); everything else uses `anyhow` internally. Error wording shown to 
+users comes from the mapping table in `plan/04-ollama-client.md` §7 — keep the strings in one place 
+(`ollama/client.rs`).
+- Every module that can be tested in isolation carries a `#[cfg(test)] mod tests` block. Stream parsing, request 
+building, settings validation and the history store are the high-risk areas and must stay covered.
+- Dependencies stay minimal on purpose: `gpui-kit`, `ureq`, `serde`/`serde_json`, `uuid`, `chrono`, `tray-icon`, 
+`objc2*`, `image`, `anyhow`, `thiserror`, `log`/`env_logger`. No async runtime.
+- GPUI API drift is real: names in `plan/` marked "verify" were checked against the `gpui-kit`-pinned GPUI at M0. When 
+upgrading `gpui-kit`, re-verify `Application`, `open_window`, theme init and `component` paths first.
 
 ## Working on this repository
 
