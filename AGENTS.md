@@ -76,3 +76,17 @@ M6 (tray/lifecycle) is the least documented integration — its fallbacks live i
 
 App data lives in `~/Library/Application Support/dislexia/` (`settings.json`, `chats/<uuid>.json`). The `.app` bundle is ad-hoc signed for local use
 (`scripts/bundle.sh`); no `LSUIElement` in Info.plist — Dock visibility is toggled at runtime.
+
+Releases are cut by CI from a version bump, not by hand: bump `version` in `Cargo.toml`, merge to `master`, and
+`.github/workflows/release.yml` builds the macOS app — a zipped, ad-hoc-signed `Dislexia.app` per target
+(`macos-aarch64`, `macos-x86_64`) — and publishes `v<version>`. The publish job is gated behind `make check`,
+so a red tree never releases. The release job is idempotent: a manual `workflow_dispatch` re-runs the publish
+and `--clobber`s existing assets, which is how a half-finished release is repaired. `.github/workflows/ci.yml`
+runs that gate on every push and pull request — on macOS, since the app links objc2 unconditionally and does
+not build on Linux.
+
+Both workflows keep their shell in `.github/scripts/`, one script per step, rather than inlined `run:` blocks.
+An inline script gets no syntax highlighting, no editor tooling and no shellcheck; a file in that directory gets
+all three, and `ci.yml` lints the whole directory on every push. The scripts are `bash`, take their inputs from
+the environment rather than arguments so the workflow can pass them through `env:` instead of interpolating
+`${{ … }}` into shell text, and assume they run from the repository root.

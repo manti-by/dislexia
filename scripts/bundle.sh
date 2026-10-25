@@ -10,8 +10,10 @@ import re
 print(re.search(r'^version = "(.*)"', open("Cargo.toml").read(), re.M).group(1))
 PY
 )
-BUILD=target/release/dislexia
-BUNDLE="target/${APP}.app"
+# BINARY is overridable so CI can package a cross-target build
+# (target/<triple>/release/dislexia); local use defaults to the plain path.
+BUILD="${BINARY:-target/release/dislexia}"
+BUNDLE="${BUNDLE_DIR:-target}/${APP}.app"
 
 [ -f "$BUILD" ] || { echo "missing $BUILD — run cargo build --release first" >&2; exit 1; }
 

@@ -53,6 +53,12 @@ open target/Dislexia.app
 
 The bundle is ad-hoc signed for local use.
 
+## Releases
+
+CI builds the macOS app on every version bump: merge a `version` bump in `Cargo.toml` to `master` and a
+zipped, ad-hoc-signed `Dislexia.app` (Apple Silicon + Intel) is published as a GitHub release. Every push
+runs the `make check` gate first.
+
 ## Data
 
 App data lives in `~/Library/Application Support/dislexia/`:
