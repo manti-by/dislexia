@@ -1,5 +1,5 @@
 //! A hand-written mock Ollama server: `TcpListener` on an ephemeral port,
-//! hand-rolled HTTP/1.1 responses, no extra dependency (`plan/09-testing.md`
+//! hand-rolled HTTP/1.1 responses, no extra dependency (`wiki/pages/2026-10-26-09-testing.md`
 //! §2). Routes are selected by markers in the request body.
 
 use std::io::{BufRead, BufReader, Read, Write};
@@ -107,7 +107,7 @@ fn handle_chat(stream: &mut TcpStream, body: &str) {
             br#"{"error":"model runner has unexpectedly stopped"}"#,
         );
     } else if body.contains("mid-stream-error-please") {
-        // 200 OK, then an error object mid-stream (`plan/04 §4`).
+        // 200 OK, then an error object mid-stream (`plan 04 §4`).
         write_headers(stream, 200, "application/x-ndjson");
         let _ = writeln!(
             stream,

@@ -1,5 +1,5 @@
 //! OS appearance tracking + the only place colors are assigned
-//! (`plan/07-theme.md`). The palette is greyscale; the only chromatic values
+//! (`wiki/pages/2026-10-26-07-theme.md`). The palette is greyscale; the only chromatic values
 //! are the three macOS window controls. It is registered as two kit theme
 //! configs (dark is the primary identity); the theme follows the OS
 //! appearance and switches live.
@@ -10,7 +10,7 @@ use gpui_kit::component::{Theme, ThemeConfig, ThemeRegistry};
 use gpui_kit::{Hsla, rgb};
 
 /// Standard macOS traffic-light colors. These are the app's only non-grey
-/// values (`plan/07 §3`); `ui/title_bar.rs` draws them.
+/// values (`plan 07 §3`); `ui/title_bar.rs` draws them.
 const WINDOW_CLOSE_RGB: u32 = 0xFF5F57;
 const WINDOW_MINIMIZE_RGB: u32 = 0xFEBC2E;
 const WINDOW_ZOOM_RGB: u32 = 0x28C840;
@@ -24,7 +24,7 @@ pub fn window_control_colors() -> (Hsla, Hsla, Hsla) {
     )
 }
 
-/// Dark palette (`plan/07 §3`): Warp-like near-black, low-contrast chrome,
+/// Dark palette (`plan 07 §3`): Warp-like near-black, low-contrast chrome,
 /// greyscale accents.
 const DARK_JSON: &str = r##"{
     "name": "Dislexia Dark",
@@ -79,7 +79,7 @@ const DARK_JSON: &str = r##"{
     }
 }"##;
 
-/// Light counterpart (`plan/07 §3`) — a clean greyscale paper palette.
+/// Light counterpart (`plan 07 §3`) — a clean greyscale paper palette.
 const LIGHT_JSON: &str = r##"{
     "name": "Dislexia Light",
     "mode": "light",
@@ -150,7 +150,7 @@ pub fn init(cx: &mut gpui_kit::App) {
         theme.dark_theme = Rc::new(dark);
     });
 
-    // Follow the OS from the very first frame (`plan/07 §1`).
+    // Follow the OS from the very first frame (`plan 07 §1`).
     Theme::sync_system_appearance(None, cx);
 }
 

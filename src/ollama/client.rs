@@ -1,4 +1,4 @@
-//! The blocking Ollama client (`plan/04-ollama-client.md` §1, §5–7).
+//! The blocking Ollama client (`wiki/pages/2026-10-26-04-ollama-client.md` §1, §5–7).
 
 use std::io::BufRead;
 use std::sync::Arc;
@@ -11,7 +11,7 @@ use crate::history::{Message, MessageStatus, Role};
 
 use super::types::{ApiMessage, ChatChunk, ChatRequest, OllamaError, Options};
 
-/// Connect timeout: "server down" is detected fast (`plan/04 §7`).
+/// Connect timeout: "server down" is detected fast (`plan 04 §7`).
 const CONNECT_TIMEOUT: Duration = Duration::from_secs(3);
 /// Read timeout between bytes; also bounds the worst-case Stop latency.
 const READ_TIMEOUT: Duration = Duration::from_secs(30);
@@ -39,7 +39,7 @@ impl OllamaClient {
         Ok(Self { base, agent })
     }
 
-    /// `GET /api/tags` — installed model names (`plan/04 §2`).
+    /// `GET /api/tags` — installed model names (`plan 04 §2`).
     pub fn list_models(&self) -> Result<Vec<String>, OllamaError> {
         let response = self.agent.get(format!("{}/api/tags", self.base)).call();
         let response = map_transport_error(response)?;
@@ -59,13 +59,13 @@ impl OllamaClient {
     }
 
     /// Connection test = a successful `/api/tags` with its model count
-    /// (`plan/04 §1`).
+    /// (`plan 04 §1`).
     pub fn test_connection(&self) -> Result<usize, OllamaError> {
         self.list_models().map(|models| models.len())
     }
 
     /// `POST /api/chat` with `stream: true`; returns a blocking iterator over
-    /// the NDJSON chunks (`plan/04 §5`). The HTTP status/body errors surface
+    /// the NDJSON chunks (`plan 04 §5`). The HTTP status/body errors surface
     /// immediately; per-line errors surface while iterating.
     pub fn chat(
         &self,
@@ -89,7 +89,7 @@ impl OllamaClient {
 }
 
 /// Blocking NDJSON line iterator with between-line cancellation
-/// (`plan/04 §5–6`).
+/// (`plan 04 §5–6`).
 pub struct ChatStream {
     lines: std::io::Lines<std::io::BufReader<ureq::BodyReader<'static>>>,
     cancel: CancelFlag,
@@ -130,7 +130,7 @@ impl Iterator for ChatStream {
     }
 }
 
-/// Cancellation flag shared with the UI (`plan/04 §6`). The Stop button sets
+/// Cancellation flag shared with the UI (`plan 04 §6`). The Stop button sets
 /// it; the stream loop checks it between lines.
 #[derive(Clone)]
 pub struct CancelFlag(Arc<AtomicBool>);
@@ -164,7 +164,7 @@ impl Default for CancelFlag {
     }
 }
 
-/// Builds the `/api/chat` payload for a chat turn (`plan/04 §3`, `plan/06 §6`):
+/// Builds the `/api/chat` payload for a chat turn (`plan 04 §3`, `plan 06 §6`):
 /// system message first (only when non-empty), then every stored message
 /// except errors and live-streaming placeholders.
 pub fn build_chat_request(
@@ -206,7 +206,7 @@ pub fn build_chat_request(
 }
 
 /// The user-facing wording for every error variant, in one place
-/// (`plan/04 §7`). Logged errors keep their debug form; this copy is what
+/// (`plan 04 §7`). Logged errors keep their debug form; this copy is what
 /// lands in the transcript.
 pub fn user_error_message(error: &OllamaError, server_url: &str, model: &str) -> String {
     match error {
@@ -249,7 +249,7 @@ fn map_transport_error(
 }
 
 /// ureq reports refused/dropped connections as `Io`; split out the ones the
-/// user reads as "server down" (`plan/04 §7`).
+/// user reads as "server down" (`plan 04 §7`).
 fn transport_kind(message: &str, error: std::io::Error) -> OllamaError {
     if message.contains("refused")
         || message.contains("unreachable")

@@ -9,8 +9,9 @@ via [GPUI Kit](https://gpui-kit.com). Its default persona is a **writing fixer**
 returns it corrected — spelling and wording fixed, old-fashioned words modernized, simplified yet more formal. Rust, 
 edition 2024, stable ≥ 1.85.
 
-The implementation contract lives in [BUILD_PLAN.md](wiki/plan/BUILD_PLAN.md) and `wiki/plan/` — read the matching 
-`wiki/plan/0N-*.md` before changing a module. Keep the plan true when implementation diverges.
+The implementation contract lives in the build-plan pages under `wiki/pages/` — start at the
+[build plan](wiki/pages/2026-10-26-build-plan.md) and read the matching `wiki/pages/2026-10-26-0N-*.md` before
+changing a module. Keep the plan true when implementation diverges.
 
 ## Commands
 
@@ -20,7 +21,7 @@ The implementation contract lives in [BUILD_PLAN.md](wiki/plan/BUILD_PLAN.md) an
 | `make run` | Run the test suite. Unit tests plus the mock-Ollama integration tests; none touch the network. |
 | `make check` | `fmt --check`, clippy and tests; the gate before committing. |
 | `make app` | Run the same gate, then build `target/release/dislexia` and bundle `target/Dislexia.app`. |
-| `make icons` | Regenerate `assets/` (icns + tray template PNGs) from `media/icon-typewriter.svg`. |
+| `make icons` | Regenerate `assets/` (icns + tray template PNGs) from `media/dislexia.svg`. |
 | `make clean` | `cargo clean`. |
 | `cargo build` | The same build, without the Makefile. |
 | `cargo test` | The same tests, without the Makefile. |
@@ -46,15 +47,17 @@ and history work without one.
 | `src/tray.rs` | Tray icon, menu, event thread; forwards intents to `Dislexia`. Never dropped — dropping removes the icon. |
 | `src/platform/macos.rs` | objc2 helpers: Dock activation policy, app activation, native traffic-light hiding. Only users: `main.rs`, `app.rs` and `tray.rs`. |
 | `prompts/default-system-prompt.md` | The default system prompt, embedded with `include_str!`. Product copy; change deliberately. |
-| `media/` | Source art. `icon-typewriter.svg` is the single icon source; everything in `assets/` is generated from it. |
-| `scripts/` | `make-icons.sh` (SVG → icns + tray PNGs), `png-template.py` (opaque raster → black+alpha template), `bundle.sh` (release build → `target/Dislexia.app`). |
+| `media/` | Source art. `dislexia.svg` is the single icon source; everything in `assets/` is generated from it. |
+| `scripts/` | `make-icons.sh` (SVG → icns + tray PNGs), `svg-glyph.py` (normalize the art: black ink, square, padded), `png-template.py` (opaque raster → black+alpha template), `bundle.sh` (release build → `target/Dislexia.app`). |
 | `tests/ollama.rs` | Integration tests against a hand-written mock Ollama server (`tests/common/`). |
+| `wiki/pages/` | One page per session, plus the `2026-10-26-*` build-plan reference pages. `wiki/INDEX.md` catalogues both; `wiki/README.md` is the schema. |
 
 ## Conventions
 
-- **The plan is the contract.** `plan/` documents every schema, palette value, error wording and acceptance criterion. 
+- **The plan is the contract.** `wiki/pages/2026-10-26-0N-*.md` documents every schema, palette value, error wording and acceptance criterion. 
 When code and plan disagree, either fix the code or update the plan in the same change — never leave them diverging 
-silently.
+silently. Code comments cite it as `plan NN §M` — `plan 04 §7` is §7 of `wiki/pages/2026-10-26-04-ollama-client.md`;
+module headers carry the full page path.
 - **`ollama/` stays GPUI-free.** It is pure blocking Rust over `ureq` 3 (no tokio), so it unit-tests and 
 integration-tests without a window. NDJSON is line-oriented; the streaming loop is a blocking `BufRead` on GPUI's 
 background executor, checking the cancellation flag between lines.
@@ -65,19 +68,19 @@ never per chunk; corrupt chat files are renamed `.bad` and skipped, never delete
 - **User-visible errors live in entities** (a `MessageStatus::Error(String)`), never only in the log, so the UI can 
 always render them.
 - Errors in `ollama/` are `thiserror` (`OllamaError`); everything else uses `anyhow` internally. Error wording shown to 
-users comes from the mapping table in `plan/04-ollama-client.md` §7 — keep the strings in one place 
+users comes from the mapping table in `wiki/pages/2026-10-26-04-ollama-client.md` §7 — keep the strings in one place 
 (`ollama/client.rs`).
 - Every module that can be tested in isolation carries a `#[cfg(test)] mod tests` block. Stream parsing, request 
 building, settings validation and the history store are the high-risk areas and must stay covered.
 - Dependencies stay minimal on purpose: `gpui-kit`, `ureq`, `serde`/`serde_json`, `uuid`, `chrono`, `tray-icon`, 
 `objc2*`, `image`, `anyhow`, `thiserror`, `log`/`env_logger`. No async runtime.
-- GPUI API drift is real: names in `plan/` marked "verify" were checked against the `gpui-kit`-pinned GPUI at M0. When 
+- GPUI API drift is real: names in the plan pages marked "verify" were checked against the `gpui-kit`-pinned GPUI at M0. When 
 upgrading `gpui-kit`, re-verify `Application`, `open_window`, theme init and `component` paths first.
 
 ## Working on this repository
 
-Every milestone ends with its acceptance boxes ticked in `plan/10-milestones.md` and `make check` green, then a commit. Milestones build in order M0→M7;
-M6 (tray/lifecycle) is the least documented integration — its fallbacks live in `plan/08-tray-and-lifecycle.md` §4.
+Every milestone ends with its acceptance boxes ticked in `wiki/pages/2026-10-26-10-milestones.md` and `make check` green, then a commit. Milestones build in order M0→M7;
+M6 (tray/lifecycle) is the least documented integration — its fallbacks live in `wiki/pages/2026-10-26-08-tray-and-lifecycle.md` §4.
 
 App data lives in `~/Library/Application Support/dislexia/` (`settings.json`, `chats/<uuid>.json`). The `.app` bundle is ad-hoc signed for local use
 (`scripts/bundle.sh`); no `LSUIElement` in Info.plist — Dock visibility is toggled at runtime.

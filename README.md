@@ -44,7 +44,7 @@ history work without a running Ollama, chat needs one.
 ## Build & package
 
 ```
-make icons        # regenerate assets/ from media/icon-typewriter.svg
+make icons        # regenerate assets/ from media/dislexia.svg
 make app          # the check gate, then bundle target/Dislexia.app
 open target/Dislexia.app
 ```
@@ -65,13 +65,13 @@ are renamed `.bad`, never deleted).
 
 ## Credits & license
 
-- Icon: "typewriter" from [Material Design Icons](https://pictogrammers.com/library/mdi/icon/typewriter/) (Apache-2.0), 
-single source for the app icon and the tray template.
+- Icon: the spiral mark in [`media/dislexia.svg`](media/dislexia.svg) — project artwork, single source for the app icon and the tray template.
 - UI: [GPUI Kit](https://gpui-kit.com) and the GPUI it pins.
 - License: BSD-3-Clause.
 
 ## Architecture
 
-The implementation contract lives in [BUILD_PLAN.md](BUILD_PLAN.md) and `plan/` — module map, schemas, palette, error 
-wording, milestones and the verified GPUI Kit API shapes (plan/api-notes.md). [AGENTS.md](AGENTS.md) summarizes the 
-working conventions.
+The implementation contract lives in the wiki's build-plan pages — start at
+[2026-10-26-build-plan.md](wiki/pages/2026-10-26-build-plan.md) and follow the `2026-10-26-0N-*` pages: module map,
+schemas, palette, error wording, milestones and the verified GPUI Kit API shapes
+([api-notes](wiki/pages/2026-10-26-api-notes.md)). [AGENTS.md](AGENTS.md) summarizes the working conventions.

@@ -1,6 +1,6 @@
 //! System tray: icon (template PNG generated from the icon SVG), minimal
 //! menu, and event forwarding into the GPUI main runloop
-//! (`plan/08-tray-and-lifecycle.md`).
+//! (`wiki/pages/2026-10-26-08-tray-and-lifecycle.md`).
 //!
 //! The `Tray` struct must be kept alive for the whole process — dropping it
 //! removes the icon.
@@ -24,7 +24,7 @@ pub struct Tray {
 }
 
 /// Creates the tray icon + menu on the main thread and starts the event
-/// forwarder (`plan/08 §1, §3`). The `Tray` handle leaks on purpose: it must
+/// forwarder (`plan 08 §1, §3`). The `Tray` handle leaks on purpose: it must
 /// outlive every window and dropping it would remove the icon.
 pub fn init(cx: &mut gpui_kit::App) {
     let menu = Menu::new();
@@ -43,10 +43,10 @@ pub fn init(cx: &mut gpui_kit::App) {
 
     let icon = TrayIconBuilder::new()
         .with_menu(Box::new(menu.clone()))
-        // Template rendering adapts to light/dark menu bars (`plan/07 §5`).
+        // Template rendering adapts to light/dark menu bars (`plan 07 §5`).
         .with_icon_templated(load_icon())
         .with_tooltip("Dislexia")
-        // Left click opens the window (plan/08 §1); the menu lives on the
+        // Left click opens the window (plan 08 §1); the menu lives on the
         // right click.
         .with_menu_on_left_click(false)
         .build()
@@ -59,7 +59,7 @@ pub fn init(cx: &mut gpui_kit::App) {
     });
 }
 
-/// Loads the 16px template PNG compiled into the binary (`plan/02 §8`).
+/// Loads the 16px template PNG compiled into the binary (`plan 02 §8`).
 fn load_icon() -> tray_icon::Icon {
     let image = image::load_from_memory(include_bytes!("../assets/tray-16@1x.png"))
         .expect("tray PNG is bundled");
@@ -76,7 +76,7 @@ enum Intent {
     Quit,
 }
 
-/// Forwards tray + menu events onto the main thread (`plan/08 §3`).
+/// Forwards tray + menu events onto the main thread (`plan 08 §3`).
 ///
 /// Implementation note (M6): the plan sketched a dedicated std thread with
 /// a main-thread hop. The pinned GPUI offers a simpler always-correct hop —
@@ -127,7 +127,7 @@ fn drain_intents() -> Vec<Intent> {
         });
     }
     while let Ok(event) = TrayIconEvent::receiver().try_recv() {
-        // Any left-button click on the icon opens the window (`plan/08 §1`).
+        // Any left-button click on the icon opens the window (`plan 08 §1`).
         if let TrayIconEvent::Click {
             button: tray_icon::MouseButton::Left,
             button_state: tray_icon::MouseButtonState::Up,

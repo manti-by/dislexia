@@ -1,5 +1,6 @@
 //! The sidebar: New chat button + the grouped list of previous chats
-//! (`plan/03-ui-layout.md` §1, `plan/06 §4`). Rows select on click and
+//! (`wiki/pages/2026-10-26-03-ui-layout.md` §1,
+//! `wiki/pages/2026-10-26-06-chat-history.md` §4). Rows select on click and
 //! reveal a delete action on hover (confirmed via an alert dialog).
 
 use chrono::Utc;
@@ -13,7 +14,7 @@ use gpui_kit::*;
 use crate::app::Dislexia;
 use crate::history::group_label;
 
-/// Default width of the sidebar panel (`plan/03 §1`).
+/// Default width of the sidebar panel (`plan 03 §1`).
 pub const DEFAULT_WIDTH: f32 = 150.;
 /// Narrowest the panel can be dragged.
 pub const MIN_WIDTH: f32 = 150.;
@@ -35,7 +36,7 @@ pub fn render(this: &mut Dislexia, cx: &mut Context<Dislexia>) -> impl IntoEleme
     let mut last_group: Option<&'static str> = None;
     for chat in chats {
         // Group headers: Today / Yesterday / Previous 7 days / Older
-        // (`plan/06 §4`).
+        // (`plan 06 §4`).
         let group = group_label(chat.updated_at, Utc::now());
         if last_group != Some(group) {
             list = list.child(
@@ -116,7 +117,7 @@ pub fn render(this: &mut Dislexia, cx: &mut Context<Dislexia>) -> impl IntoEleme
         .child(list)
 }
 
-/// Delete-with-confirm (`plan/03 §4`, v1 minimum).
+/// Delete-with-confirm (`plan 03 §4`, v1 minimum).
 fn confirm_delete(
     this: &mut Dislexia,
     chat_id: uuid::Uuid,

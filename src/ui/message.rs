@@ -1,8 +1,8 @@
-//! One message row (`plan/03-ui-layout.md` §1 "Message row anatomy").
+//! One message row (`wiki/pages/2026-10-26-03-ui-layout.md` §1 "Message row anatomy").
 //! User: surface panel, right-aligned. Assistant: flat block with a 2px
 //! accent bar, markdown body, monospace meta line; a streaming cursor runs
 //! while the message streams; errors render with a red bar. Hovering a
-//! finished message reveals a copy action (`plan/03 §4`).
+//! finished message reveals a copy action (`wiki/pages/2026-10-26-03-ui-layout.md §4`).
 
 use gpui_kit::component::Icon;
 use gpui_kit::component::button::{Button, ButtonVariants as _};
@@ -119,7 +119,7 @@ fn render_assistant(
 }
 
 /// The hover-revealed copy action: copies the raw text to the clipboard
-/// (`plan/03 §4`).
+/// (`plan 03 §4`).
 fn copy_button(id: &'static str, text: String) -> impl IntoElement {
     div()
         .invisible()

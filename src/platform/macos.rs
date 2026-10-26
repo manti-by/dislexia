@@ -1,6 +1,7 @@
 //! objc2 helpers: Dock activation policy, app activation and window chrome
-//! (`plan/08 §5`, `plan/03 §6`). Only `main.rs`, `app.rs` and `tray.rs` may
-//! use this.
+//! (`wiki/pages/2026-10-26-08-tray-and-lifecycle.md` §5,
+//! `wiki/pages/2026-10-26-03-ui-layout.md` §6). Only `main.rs`, `app.rs` and
+//! `tray.rs` may use this.
 //!
 //! macOS-only by design; the module boundary keeps a port thinkable.
 
@@ -31,7 +32,7 @@ pub fn set_dock_policy(policy: DockPolicy) {
 }
 
 /// Brings the app to the front on reopen: Accessory apps need the explicit
-/// activation kick (`plan/08 §5`). `ActivateIgnoringOtherApps` is deprecated
+/// activation kick (`plan 08 §5`). `ActivateIgnoringOtherApps` is deprecated
 /// on macOS 14+ (where plain activation suffices) but remains the API the
 /// objc2 bindings expose.
 pub fn activate_app() {
@@ -41,7 +42,7 @@ pub fn activate_app() {
 }
 
 /// Hides AppKit's standard close/minimize/zoom buttons so the app can draw
-/// its own 12px controls (`plan/03 §6`). Returns whether a live native window
+/// its own 12px controls (`plan 03 §6`). Returns whether a live native window
 /// was reached; callers may retry on the next frame while it is false.
 pub fn hide_window_buttons(window: &gpui_kit::Window) -> bool {
     let Ok(handle) = HasWindowHandle::window_handle(window) else {

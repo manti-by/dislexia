@@ -1,10 +1,10 @@
 //! Serde types for the Ollama REST API and the error taxonomy
-//! (`plan/04-ollama-client.md` §3–5, §7).
+//! (`wiki/pages/2026-10-26-04-ollama-client.md` §3–5, §7).
 
 use serde::{Deserialize, Serialize};
 
 /// Errors surfaced by the client. The user-facing wording for each variant
-/// lives in one place: `user_error_message` in `client.rs` (`plan/04 §7`).
+/// lives in one place: `user_error_message` in `client.rs` (`plan 04 §7`).
 #[derive(Debug, thiserror::Error)]
 pub enum OllamaError {
     /// TCP refused/failed, DNS, unreachable host.
@@ -36,7 +36,7 @@ impl OllamaError {
     }
 }
 
-/// One message in a `/api/chat` request or response (`plan/04 §3`).
+/// One message in a `/api/chat` request or response (`plan 04 §3`).
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 pub struct ApiMessage {
     pub role: String,
@@ -64,14 +64,14 @@ pub struct Options {
 
 impl Options {
     /// `true` when every field is `None` — the `options` object is omitted
-    /// from the request entirely (`plan/04 §3`).
+    /// from the request entirely (`plan 04 §3`).
     pub fn is_empty(&self) -> bool {
         *self == Options::default()
     }
 }
 
 /// `POST /api/chat` payload. `stream` is always `true` — the only generation
-/// path in v1 (`plan/BUILD_PLAN.md` decision 5).
+/// path in v1 (build-plan decision 5).
 #[derive(Clone, Debug, Serialize)]
 pub struct ChatRequest {
     pub model: String,
@@ -84,7 +84,7 @@ pub struct ChatRequest {
 /// One NDJSON line of the stream. Ollama sends delta lines with
 /// `done: false` and a final line with `done: true` carrying stats; the
 /// final line repeats `message` with empty content, so a flat struct with
-/// `done` as the discriminator covers both shapes (see `plan/04 §4`).
+/// `done` as the discriminator covers both shapes (see `plan 04 §4`).
 #[derive(Clone, Debug, Default, Deserialize)]
 pub struct ChatChunk {
     #[serde(default)]

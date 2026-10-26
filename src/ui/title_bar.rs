@@ -1,5 +1,5 @@
 //! The 12px window controls drawn in the app title bar
-//! (`plan/03-ui-layout.md` §6). macOS 27's system traffic lights are 14px
+//! (`wiki/pages/2026-10-26-03-ui-layout.md` §6). macOS 27's system traffic lights are 14px
 //! and AppKit does not let a window resize them, so the native buttons are
 //! hidden (`platform::macos::hide_window_buttons`) and these take their
 //! place: same colours, same order, hover glyphs, native click behaviour.

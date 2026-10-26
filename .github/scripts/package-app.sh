@@ -5,7 +5,7 @@
 #
 # The bundle is the same layout scripts/bundle.sh produces — Info.plist with
 # no LSUIElement (Dock visibility is toggled at runtime), the icns generated
-# from media/icon-typewriter.svg — ad-hoc signed for local use, because a
+# from media/dislexia.svg — ad-hoc signed for local use, because a
 # developer-ID signature needs secrets this repo does not carry. The archive
 # holds Dislexia.app plus README.md so a downloaded release unpacks to
 # something self-explanatory.

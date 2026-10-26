@@ -5,7 +5,7 @@
 #   make run     run the test suite
 #   make check   fmt, clippy and tests
 #   make app     run the gate, then bundle target/Dislexia.app
-#   make icons   regenerate assets/ from media/icon-typewriter.svg
+#   make icons   regenerate assets/ from media/dislexia.svg
 #   make clean   remove build artifacts
 
 CARGO ?= cargo

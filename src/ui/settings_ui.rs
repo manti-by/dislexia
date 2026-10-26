@@ -1,4 +1,5 @@
-//! Settings dialog (`plan/03-ui-layout.md` §2, `plan/05-settings.md`).
+//! Settings dialog (`wiki/pages/2026-10-26-03-ui-layout.md` §2,
+//! `wiki/pages/2026-10-26-05-settings.md`).
 //! One kit `Dialog`, sections Connection / Model / Parameters. Changes are
 //! committed on every field change and persisted with a 300ms debounce;
 //! there is no OK/Cancel.
@@ -15,7 +16,7 @@ use gpui_kit::*;
 
 use crate::app::Dislexia;
 
-/// Width of the settings dialog (`plan/03 §2`).
+/// Width of the settings dialog (`plan 03 §2`).
 const DIALOG_WIDTH: f32 = 560.;
 
 /// Live connection state for the Test row.
@@ -261,7 +262,7 @@ fn render_test_row(this: &Dislexia, weak: WeakEntity<Dislexia>, cx: &App) -> Any
         .into_any_element()
 }
 
-/// The numeric parameter inputs, in a two-column grid (`plan/03 §2`).
+/// The numeric parameter inputs, in a two-column grid (`plan 03 §2`).
 fn render_options_grid(this: &Dislexia, cx: &App) -> Div {
     let ui = &this.settings_ui;
     let rows: [(&str, &Entity<InputState>, &'static str); 7] = [

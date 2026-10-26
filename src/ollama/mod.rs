@@ -1,5 +1,5 @@
 //! The Ollama API client: pure blocking Rust over `ureq` 3 — **no GPUI
-//! imports** (`plan/04-ollama-client.md`). Runs unchanged on GPUI's
+//! imports** (`wiki/pages/2026-10-26-04-ollama-client.md`). Runs unchanged on GPUI's
 //! background executor and integration-tests against a mock server.
 
 mod client;

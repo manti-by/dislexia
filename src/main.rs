@@ -13,7 +13,7 @@ fn main() {
         gpui_kit::init(cx);
         dislexia::theme::init(cx);
 
-        // Global shortcuts (`plan/03 §7`); per-window actions dispatch to the
+        // Global shortcuts (`plan 03 §7`); per-window actions dispatch to the
         // root entity's `on_action` handlers.
         cx.bind_keys([
             KeyBinding::new("cmd-n", dislexia::app::NewChat, None),
@@ -28,7 +28,7 @@ fn main() {
         dislexia::tray::init(cx);
 
         // Closing the last window hides the Dock icon but keeps the app and
-        // tray alive (`plan/08 §4`); quitting stays explicit.
+        // tray alive (`plan 08 §4`); quitting stays explicit.
         cx.on_window_closed(|cx, _| {
             if cx.windows().is_empty() {
                 dislexia::platform::macos::set_dock_policy(DockPolicy::Accessory);
@@ -36,10 +36,14 @@ fn main() {
         })
         .detach();
 
-        // Settings load before the window opens (`plan/02 §4` boot order).
+        // Settings load before the window opens (`plan 02 §4` boot order).
         let settings = dislexia::settings::load();
-        dislexia::ui::open_main_window(dislexia::ui::window_options(cx), settings, cx)
-            .expect("failed to open main window");
+        dislexia::ui::open_main_window(
+            dislexia::ui::window_options(cx, settings.window_frame),
+            settings,
+            cx,
+        )
+        .expect("failed to open main window");
 
         cx.activate(true);
     });

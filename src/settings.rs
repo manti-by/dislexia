@@ -1,12 +1,13 @@
-//! Settings schema, defaults and persistence (`plan/05-settings.md`).
+//! Settings schema, defaults and persistence (`wiki/pages/2026-10-26-05-settings.md`).
 
 use std::path::PathBuf;
 
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
+use uuid::Uuid;
 
 /// The default system prompt: the text-fixer persona, embedded at compile
-/// time (`plan/05 §1.1`). Product copy — change deliberately.
+/// time (`plan 05 §1.1`). Product copy — change deliberately.
 pub const DEFAULT_SYSTEM_PROMPT: &str = include_str!("../prompts/default-system-prompt.md");
 
 pub const DEFAULT_SERVER_URL: &str = "http://127.0.0.1:11434";
@@ -19,9 +20,25 @@ pub struct Settings {
     pub system_prompt: String,
     pub options: ModelOptions,
     pub launch_at_login: bool,
+    /// Where the window was last left (`plan 03 §6`); `None` on first run.
+    pub window_frame: Option<WindowFrame>,
 }
 
-/// Model parameters; `None` fields are not sent to Ollama (`plan/05 §2`).
+/// The main window's last position and size, in screen points, plus the
+/// display it was on — the uuid survives restarts, so a window parked on a
+/// second monitor reopens there instead of on the primary display.
+#[derive(Clone, Copy, Debug, Default, Serialize, Deserialize, PartialEq)]
+#[serde(default)]
+pub struct WindowFrame {
+    pub x: f32,
+    pub y: f32,
+    pub width: f32,
+    pub height: f32,
+    /// `CGDisplayCreateUUIDFromDisplayID`, as a string; `None` on first save.
+    pub display: Option<Uuid>,
+}
+
+/// Model parameters; `None` fields are not sent to Ollama (`plan 05 §2`).
 #[derive(Clone, Debug, Default, Serialize, Deserialize, PartialEq)]
 #[serde(default)]
 pub struct ModelOptions {
@@ -41,18 +58,19 @@ impl Default for Settings {
             model: None,
             system_prompt: DEFAULT_SYSTEM_PROMPT.to_owned(),
             // Low on purpose: the default persona is deterministic text
-            // editing, not creative writing (`plan/05 §1`).
+            // editing, not creative writing (`plan 05 §1`).
             options: ModelOptions {
                 temperature: Some(0.2),
                 ..ModelOptions::default()
             },
             launch_at_login: false,
+            window_frame: None,
         }
     }
 }
 
 /// The app data directory: `~/Library/Application Support/dislexia/`
-/// (`plan/02 §6`). `HOME` is read directly — the app is macOS-only and
+/// (`plan 02 §6`). `HOME` is read directly — the app is macOS-only and
 /// never sandboxed.
 pub fn data_dir() -> PathBuf {
     let home = std::env::var_os("HOME")
@@ -68,7 +86,7 @@ pub fn settings_path() -> PathBuf {
 }
 
 /// Loads settings; a missing file means defaults, a corrupt one means
-/// defaults + a warning (`plan/05 §4`) — never a crash on launch.
+/// defaults + a warning (`plan 05 §4`) — never a crash on launch.
 pub fn load() -> Settings {
     load_from(&settings_path())
 }
@@ -88,7 +106,7 @@ pub fn load_from(path: &std::path::Path) -> Settings {
 }
 
 /// Persists settings atomically: write `settings.json.tmp`, then rename
-/// over the target (`plan/05 §4`) — never a partially-written file.
+/// over the target (`plan 05 §4`) — never a partially-written file.
 pub fn save(settings: &Settings) -> Result<()> {
     save_to(&settings_path(), settings)
 }
@@ -104,7 +122,7 @@ pub fn save_to(path: &std::path::Path, settings: &Settings) -> Result<()> {
     Ok(())
 }
 
-/// Normalizes a server URL on save (`plan/05 §3`): trim, strip trailing
+/// Normalizes a server URL on save (`plan 05 §3`): trim, strip trailing
 /// slashes, prefix `http://` when the scheme is missing. Only http(s) hosts
 /// are accepted; anything else returns `Err` with the field message.
 pub fn normalize_server_url(raw: &str) -> Result<String, String> {
@@ -145,6 +163,8 @@ mod tests {
         assert_eq!(settings.system_prompt, DEFAULT_SYSTEM_PROMPT);
         assert_eq!(settings.options.temperature, Some(0.2));
         assert!(!settings.launch_at_login);
+        // Nothing to restore on a first run (`plan 03 §6`).
+        assert_eq!(settings.window_frame, None);
     }
 
     #[test]
@@ -174,6 +194,29 @@ mod tests {
                 ..Settings::default()
             }
         );
+    }
+
+    #[test]
+    fn window_frame_round_trips_and_is_optional() {
+        let frame = WindowFrame {
+            x: 40.,
+            y: 60.,
+            width: 900.,
+            height: 700.,
+            display: Some(Uuid::nil()),
+        };
+        let settings = Settings {
+            window_frame: Some(frame),
+            ..Settings::default()
+        };
+        let json = serde_json::to_string(&settings).unwrap();
+        let back: Settings = serde_json::from_str(&json).unwrap();
+        assert_eq!(back.window_frame, Some(frame));
+
+        // A settings.json written before the frame was persisted loads clean.
+        let legacy: Settings = serde_json::from_str(r#"{"model": "llama3"}"#).unwrap();
+        assert_eq!(legacy.window_frame, None);
+        assert_eq!(legacy.model.as_deref(), Some("llama3"));
     }
 
     #[test]

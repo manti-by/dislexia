@@ -2,7 +2,9 @@
 
 A persistent, compounding knowledge base for this project. Each page captures **one session** -
 a debugging chase, a code review, an investigation into how something works, or a set of changes
-- so the reasoning survives after the terminal scrollback is gone.
+- so the reasoning survives after the terminal scrollback is gone. A few `reference` pages hold
+the standing design docs (the build plan) instead of a session; those are updated in place rather
+than appended to.
 
 Inspired by [Karpathy's LLM-maintained wiki pattern](https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f):
 the human curates and directs; the agent does the bookkeeping (writing pages, cross-linking,
@@ -15,7 +17,7 @@ keeping the index current). Pages are plain Markdown so they stay human-readable
 - `INDEX.md` - Catalog of every page with a one-line summary. Kept current on each new page.
 - `QUESTIONS.md` - Open questions about wiki discrepancies, awaiting a human answer.
 - `pages/YYYY-MM-DD-<topic>.md` - The pages themselves, created on demand by `/wiki-update`.
-- `.openwiki-sessions.json` - Internal cache mapping session id to page file (`{ "<session_id>": "<file>.md" }`),
+- `.sessions.json` - Internal cache mapping session id to page file (`{ "<session_id>": "<file>.md" }`),
   kept current by `/wiki-update`; created on first use. Optional.
 
 ## Naming convention
@@ -26,6 +28,8 @@ pages/YYYY-MM-DD-kebab-case-topic.md
 
 - Date-prefixed so pages sort chronologically and filenames stay unique.
 - `topic` is a short kebab-case slug of the subject (e.g. `multi-agent-plan-step`, `composite-command`).
+- Pages that belong to an ordered set keep the number in the slug (e.g.
+  `2026-10-26-04-ollama-client.md` in the build plan), so the set reads in order.
 - Meta files (`README.md`, `TEMPLATE.md`, `INDEX.md`, `QUESTIONS.md`) are **not** date-prefixed.
 
 ## Page types
@@ -36,6 +40,8 @@ Every page declares a `type` in its frontmatter. The template lists the recommen
 - `investigation` - Understanding how a subsystem works / where a gap is. No single fix.
 - `code-review` - Findings against a diff or branch. Numbered findings + summary table.
 - `implementation` - A set of changes that were made. Steps with before/after + test results.
+- `reference` - Standing design/plan documentation (schema, contract, acceptance criteria)
+  rather than a session. `status: reference`; update it in place as the code changes.
 
 ## Frontmatter
 

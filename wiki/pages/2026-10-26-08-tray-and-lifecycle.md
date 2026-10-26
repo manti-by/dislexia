@@ -1,6 +1,28 @@
+---
+title: 08 — System tray & app lifecycle
+date: 2026-10-26
+type: reference
+status: reference
+session_id: -
+services: [tray, platform]
+branch: master
+tickets: []
+tags: [plan, tray, lifecycle, macos]
+related: [2026-10-26-02-project-setup.md, 2026-10-26-07-theme.md, 2026-10-26-09-testing.md, 2026-10-26-10-milestones.md, 2026-10-26-build-plan.md, 2026-10-26-06-chat-history.md, 2026-10-26-05-settings.md]
+---
+
 # 08 — System tray & app lifecycle
 
-Back to [BUILD_PLAN.md](../BUILD_PLAN.md).
+Part of the build plan — start at [[2026-10-26-build-plan]].
+
+## TL;DR
+
+Dislexia is a menu-bar utility: the tray icon is created on the main thread
+and never dropped, closing the window destroys it and flips the Dock policy to
+Accessory, and the app keeps running until an explicit Quit. Also records the M6
+findings on the main-thread hop and on the auto-quit risk.
+
+---
 
 Goal: Dislexia behaves like a menu-bar utility — **always in the tray**, survives window close as a background process (no Dock icon while hidden), quick to reopen, explicit Quit only.
 
@@ -9,7 +31,7 @@ Goal: Dislexia behaves like a menu-bar utility — **always in the tray**, survi
 Use [`tray-icon`](https://github.com/tauri-apps/tray-icon) (0.26) + `tray_icon::menu` (bundled menu API):
 
 ```rust
-pub struct Tray {                    // stored on Dislexia — NEVER dropped (dropping removes the icon)
+pub struct Tray {                    // leaks on purpose — NEVER dropped (dropping removes the icon)
     _icon: tray_icon::TrayIcon,
     _menu: tray_icon::menu::Menu,
 }
@@ -17,13 +39,14 @@ pub struct Tray {                    // stored on Dislexia — NEVER dropped (dr
 pub fn init(cx: &mut App) -> Tray {
     // must run on the main thread, before/while the runloop is alive
     let menu = Menu::new();
-    let open   = MenuItem::id_or_new("open");    // "Open Dislexia"
-    let newc   = MenuItem::id_or_new("new_chat");// "New Chat"
-    let quit   = MenuItem::id_or_new("quit");    // "Quit Dislexia"
+    let open = MenuItem::with_id(MENU_OPEN, "Open Dislexia", true, None);
+    let new_chat = MenuItem::with_id(MENU_NEW_CHAT, "New Chat", true, None);
+    let settings = MenuItem::with_id(MENU_SETTINGS, "Settings…", true, None);
+    let quit = MenuItem::with_id(MENU_QUIT, "Quit Dislexia", true, None);
     /* add separators, append items… */
     let icon = tray_icon::TrayIconBuilder::new()
         .with_menu(Box::new(menu))
-        .with_icon(load_template_icon())     // 07 §5: template image, generated from media/icon-typewriter.svg (02 §8)
+        .with_icon(load_template_icon())     // [[2026-10-26-07-theme]] §5: template image, generated from media/dislexia.svg ([[2026-10-26-02-project-setup]] §8)
         .with_tooltip("Dislexia")
         .build().expect("tray icon");
     spawn_event_thread();                    // §3
@@ -83,29 +106,32 @@ fn spawn_event_thread() {
 
 ## 4. Window show / hide & Dock icon policy
 
-State: `main_window: Option<WindowHandle>` on `Dislexia` (recreated after close — GPUI destroys closed windows).
+State: an `AppRoot` global holds a weak `Entity<Dislexia>` + the `AnyWindowHandle` (the root view
+entity is owned by its window, so a plain field would die with it — see the M6 note in §3). GPUI
+destroys closed windows, so "reopen" means recreating the window and reloading state from disk.
 
 **Show (tray open / reopen):**
 
 ```rust
 fn show_main_window(cx: &mut App) {
-    match &self.main_window {
-        Some(h) if h.is_alive() => { h.update(cx, |_, window, cx| window.activate_window()).ok(); }
-        _ => { self.main_window = Some(cx.open_window(opts, build_workspace)); }
+    match root.upgrade() {
+        Some(root) if window.is_alive() => { /* activate the existing window */ }
+        _ => { /* open a fresh window around a new Dislexia built from settings + chats */ }
     }
-    cx.activate(true);                                  // bring app forward
-    set_dock_policy(DockPolicy::Regular, cx);           // §5
-    platform::macos::activate_app_ignoring_other_apps(); // accessory apps need the NSApp kick
+    cx.activate(true);                                    // bring app forward
+    set_dock_policy(DockPolicy::Regular);                 // §5
+    platform::macos::activate_app();                      // accessory apps need the NSApp kick
 }
 ```
 
-**Close (`cmd-w`, red traffic light, tray "Hide"):** GPUI removes the window (no interception attempt in v1). On last-window-closed we flip the Dock policy:
+**Close (`cmd-w`, red traffic light):** GPUI removes the window (no interception attempt in v1).
+On last-window-closed we flip the Dock policy:
 
 ```rust
-if cx.windows().is_empty() { set_dock_policy(DockPolicy::Accessory, cx); }
+if cx.windows().is_empty() { set_dock_policy(DockPolicy::Accessory); }
 ```
 
-> ⚠ **Risk #1 — auto-quit on last window close.** Verify at M6 whether the pinned GPUI quits the process when the last window closes (Zed itself quits by explicit logic, so the framework likely does **not**, but confirm). If it does, counter-measures in order of preference: (a) find the framework hook for window-close/quit-intent and veto it (hide instead), (b) keep an offscreen 1×1 hidden window alive so the app never becomes windowless, (c) intercept `cmd-q`/quit action and route everything except the tray menu through "hide". Add a manual test to [09](09-testing.md) §3: close window, wait 60s, confirm the process and tray icon are alive.
+> ⚠ **Risk #1 — auto-quit on last window close.** Verify at M6 whether the pinned GPUI quits the process when the last window closes (Zed itself quits by explicit logic, so the framework likely does **not**, but confirm). If it does, counter-measures in order of preference: (a) find the framework hook for window-close/quit-intent and veto it (hide instead), (b) keep an offscreen 1×1 hidden window alive so the app never becomes windowless, (c) intercept `cmd-q`/quit action and route everything except the tray menu through "hide". Add a manual test to [[2026-10-26-09-testing]] §3: close window, wait 60s, confirm the process and tray icon are alive.
 
 ## 5. Dock activation policy (`src/platform/macos.rs`)
 
@@ -114,24 +140,28 @@ use objc2_app_kit::{NSApplication, NSApplicationActivationPolicy};
 
 pub enum DockPolicy { Regular, Accessory }
 
-pub fn set_dock_policy(p: DockPolicy, _cx: &mut App) {
+pub fn set_dock_policy(policy: DockPolicy) {
     let app = unsafe { NSApplication::sharedApplication() };
-    let policy = match p {
+    let policy = match policy {
         DockPolicy::Regular  => NSApplicationActivationPolicy::Regular,
         DockPolicy::Accessory => NSApplicationActivationPolicy::Accessory,  // hides Dock icon
     };
     unsafe { app.setActivationPolicy(policy) };   // main thread only — we are
 }
 
-pub fn activate_app_ignoring_other_apps() {
+pub fn activate_app() {
     // NSRunningApplication::currentApplication().activateWithOptions(.activateIgnoringOtherApps)
     // required for Accessory apps to come to the front on reopen
 }
+
+/// Hides the native traffic lights once per window (`plan 03 §6`); returns
+/// whether a live `NSWindow` was found.
+pub fn hide_window_buttons(window: &gpui_kit::Window) -> bool;
 ```
 
-Policy transitions: launch → Regular (window opens immediately at first run). While any window exists → Regular. Windowless → Accessory. Info.plist must **not** contain `LSUIElement` (decision #4 in [BUILD_PLAN.md](../BUILD_PLAN.md)).
+Policy transitions: launch → Regular (window opens immediately at first run). While any window exists → Regular. Windowless → Accessory. Info.plist must **not** contain `LSUIElement` (decision #4 in [[2026-10-26-build-plan]]).
 
-Note: switching Accessory→Regular can momentarily re-order window levels; call `activate_app_ignoring_other_apps()` **after** the policy flip, and file any flicker under M7 polish.
+Note: switching Accessory→Regular can momentarily re-order window levels; call `activate_app()` **after** the policy flip, and file any flicker under M7 polish.
 
 ## 6. Lifecycle summary
 
@@ -142,7 +172,7 @@ Note: switching Accessory→Regular can momentarily re-order window levels; call
 | Tray click / "Open" | Window recreated-or-focused, app activated, Dock: Regular |
 | "New Chat" (tray) | Show window + new chat + focus input |
 | `cmd-q` (window focused) or tray "Quit" | `cx.quit()` — only exit paths |
-| macOS logout/shutdown | Standard termination; state already persisted per message ([06](06-chat-history.md) §3) |
+| macOS logout/shutdown | Standard termination; state already persisted per message ([[2026-10-26-06-chat-history]] §3) |
 
 In-flight generations during background time keep streaming into `ChatStore` (chunks arrive on the background executor regardless of windows — entities update fine without a live window; the transcript simply re-renders on next open).
 
@@ -155,12 +185,27 @@ In-flight generations during background time keep streaming into `ChatStore` (ch
 
 ## 8. Stretch
 
-- **Launch at login** via `SMAppService` (`objc2-app-kit` / `ServiceManagement`): toggle lives in Settings → General (05 §1). Requires a bundled, signed app — schedule for after bundling (M7) and gate the switch to bundled builds only.
+- **Launch at login** via `SMAppService` (`objc2-app-kit` / `ServiceManagement`): toggle lives in Settings → General ([[2026-10-26-05-settings]] §1). Requires a bundled, signed app — schedule for after bundling (M7) and gate the switch to bundled builds only.
 - Unread-message badge on the tray icon when a background generation completes.
 - Global hotkey to open the window (e.g. `⌥Space`) — likely `keyboard shortcuts` via Carbon API or a crate like `global-hotkey` (same maintainers as `tray-icon`).
 
-## References
+## External references
 
 - [Stack Overflow: adding tray-icon to a GPUI app](https://stackoverflow.com/questions/79950357/how-can-i-add-a-tray-icon-to-a-rust-gui-application-with-gpui)
 - [CrossPaste: creating the perfect macOS system tray (GPUI app)](https://crosspaste.com/en/blog/mac-system-tray)
 - [tray-icon crate](https://github.com/tauri-apps/tray-icon)
+
+---
+
+## Follow-ups
+
+- Risk #1 (auto-quit on last window close) is resolved for the pinned GPUI — see the M6 note in §3; the 60s-alive manual check is still unticked in [[2026-10-26-09-testing]] §3.
+- Stretch: launch at login, unread badge on the tray icon, global hotkey (§8).
+- Consistency check 2026-10-26: §1/§4/§5 now show the shipped menu API (`MenuItem::with_id`) and the `AppRoot`-global window routing, and the `platform::macos` signatures (`set_dock_policy`, `activate_app`, `hide_window_buttons`).
+
+## References
+
+- Related: [[2026-10-26-02-project-setup]], [[2026-10-26-07-theme]],
+  [[2026-10-26-09-testing]], [[2026-10-26-10-milestones]], [[2026-10-26-build-plan]],
+  [[2026-10-26-06-chat-history]], [[2026-10-26-05-settings]]
+- Code: `src/tray.rs`, `src/platform/macos.rs`, `src/app.rs`

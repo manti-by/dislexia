@@ -1,6 +1,28 @@
+---
+title: 06 — Chat history
+date: 2026-10-26
+type: reference
+status: reference
+session_id: -
+services: [history, ui]
+branch: master
+tickets: []
+tags: [plan, history, persistence]
+related: [2026-10-26-03-ui-layout.md, 2026-10-26-04-ollama-client.md, 2026-10-26-05-settings.md, 2026-10-26-09-testing.md, 2026-10-26-build-plan.md]
+---
+
 # 06 — Chat history
 
-Back to [BUILD_PLAN.md](../BUILD_PLAN.md).
+Part of the build plan — start at [[2026-10-26-build-plan]].
+
+## TL;DR
+
+One JSON file per chat under `chats/<uuid>.json`, written atomically at
+message granularity. `ChatStore` keeps every chat in memory, derives titles from
+the first user message, groups the sidebar by day, and defines exactly which
+messages are replayed to Ollama.
+
+---
 
 ## 1. Data model (`src/history.rs`)
 
@@ -24,11 +46,14 @@ pub enum MessageStatus {
     Complete,
     Streaming { started_at: DateTime<Utc>, model: String },
     Stopped,                         // cancelled by user, partial text kept
-    Error(String),                   // error text; NOT replayed to the API
+    Error { message: String },       // user-facing wording; NOT replayed to the API
 }
 ```
 
-On-disk serialization uses the same shapes (`serde`; `MessageStatus` serializes as tagged enum). `ChatStore` (an entity) holds `chats: Vec<Chat>` fully in memory — hundreds of chats × a few hundred KB is fine; no lazy loading in v1.
+On-disk serialization uses the same shapes (`serde`; `MessageStatus` is internally tagged:
+`#[serde(tag = "type", rename_all = "snake_case")]`). `ChatStore` is a plain struct held in a
+GPUI entity — it keeps `chats: Vec<Chat>` fully in memory; hundreds of chats × a few hundred KB
+is fine, no lazy loading in v1.
 
 ## 2. Storage format
 
@@ -51,14 +76,14 @@ On-disk serialization uses the same shapes (`serde`; `MessageStatus` serializes 
 ## 4. Titles
 
 - From first user message: take first line, collapse whitespace, truncate to 48 chars + `…`, strip markdown fences.
-- Sidebar grouping (03 §1): **Today** / **Yesterday** / previous 7 days / **Older**, each newest-first, by `updated_at` (local time).
+- Sidebar grouping ([[2026-10-26-03-ui-layout]] §1): **Today** / **Yesterday** / previous 7 days / **Older**, each newest-first, by `updated_at` (local time).
 - Rename via double-click or context menu: stretch (M7), title field is already just a string.
 
 ## 5. Sidebar listing
 
 `ChatStore` exposes a derived, sorted `Vec<&Chat>` (by `updated_at` desc) the sidebar renders through the kit list; active chat highlighted with accent bar. Selection state (`active_chat_id`) lives on `ChatStore`.
 
-## 6. API replay rules (with [04](04-ollama-client.md) §3)
+## 6. API replay rules (with [[2026-10-26-04-ollama-client]] §3)
 
 When building a request for chat `X`:
 
@@ -78,3 +103,16 @@ Multi-turn context therefore "just works" — each turn resends the whole (clean
 - Search across chats (`cmd-f`)
 - Pin chats to top
 - Track Ollama `context` token arrays to cut resend cost
+
+---
+
+## Follow-ups
+
+- Post-v1: export to Markdown, `cmd-f` search, pinning, Ollama `context` tracking (§7).
+- Consistency check 2026-10-26: `MessageStatus::Error` is a struct variant (`Error { message }`), and `ChatStore` is a plain struct hosted by the root entity.
+
+## References
+
+- Related: [[2026-10-26-03-ui-layout]], [[2026-10-26-04-ollama-client]],
+  [[2026-10-26-05-settings]], [[2026-10-26-09-testing]], [[2026-10-26-build-plan]]
+- Code: `src/history.rs`

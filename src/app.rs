@@ -1,7 +1,7 @@
 //! The `Dislexia` root entity: global state (settings, chat store, active
 //! chat, streaming status), actions and wiring between UI and services.
 //!
-//! See `plan/01-architecture.md`. No HTTP and no file I/O here — blocking
+//! See `wiki/pages/2026-10-26-01-architecture.md`. No HTTP and no file I/O here — blocking
 //! work always goes through the background executor into the service
 //! modules.
 
@@ -44,7 +44,7 @@ actions!(
     ]
 );
 
-/// Debounce for settings file writes (`plan/05 §4`).
+/// Debounce for settings file writes (`plan 05 §4`).
 const SAVE_DEBOUNCE: Duration = Duration::from_millis(300);
 
 /// Commits one integer option from its editor text; `None` for empty
@@ -66,7 +66,7 @@ fn commit_int<T: std::str::FromStr>(
     }
 }
 
-/// Cancellation handle for the in-flight generation (`plan/04 §6`). Stored
+/// Cancellation handle for the in-flight generation (`plan 04 §6`). Stored
 /// on the root entity while a stream runs; the background loop checks the
 /// flag between lines.
 #[derive(Clone)]
@@ -80,7 +80,7 @@ pub struct GenerationHandle {
 /// Process-wide handles to the root entity and its window. The root view
 /// entity is owned by its window, so when the window closes the handle goes
 /// weak and the tray recreates the window (reloading state from disk,
-/// `plan/08 §4`).
+/// `plan 08 §4`).
 #[derive(Default)]
 pub struct AppRoot {
     pub root: Option<WeakEntity<Dislexia>>,
@@ -90,7 +90,7 @@ pub struct AppRoot {
 impl Global for AppRoot {}
 
 /// Shows (or recreates) the main window and brings it to the front
-/// (`plan/08 §4`).
+/// (`plan 08 §4`).
 pub fn show_main_window(cx: &mut App) {
     let state = cx.global::<AppRoot>();
     let alive = state
@@ -101,8 +101,10 @@ pub fn show_main_window(cx: &mut App) {
             let _ = handle.update(cx, |_, window, _| window.activate_window());
         }
     } else {
-        // Recreate: settings and chats reload from disk.
-        let _ = ui::open_main_window(ui::window_options(cx), settings::load(), cx);
+        // Recreate: settings and chats reload from disk, including where the
+        // window was last left (`plan 03 §6`).
+        let settings = settings::load();
+        let _ = ui::open_main_window(ui::window_options(cx, settings.window_frame), settings, cx);
     }
     cx.activate(true);
     crate::platform::macos::set_dock_policy(crate::platform::macos::DockPolicy::Regular);
@@ -110,14 +112,14 @@ pub fn show_main_window(cx: &mut App) {
 }
 
 /// Tray "New Chat": show the window, then start a fresh chat in it
-/// (`plan/08 §2`).
+/// (`plan 08 §2`).
 pub fn new_chat_from_tray(cx: &mut App) {
     show_main_window(cx);
     with_root_window(cx, |this, window, cx| this.handle_new_chat(window, cx));
 }
 
 /// Tray "Settings…": show the window, then open the settings dialog in it
-/// — system prompt, model, server, options (`plan/08 §2`).
+/// — system prompt, model, server, options (`plan 08 §2`).
 pub fn open_settings_from_tray(cx: &mut App) {
     show_main_window(cx);
     with_root_window(cx, |this, window, cx| {
@@ -147,20 +149,20 @@ pub struct Dislexia {
     input: Entity<TextareaState>,
     /// Scroll handle of the transcript, for follow-on-append.
     scroll: ScrollHandle,
-    /// Chat settings (`plan/05`); persisted, edited in the settings dialog.
+    /// Chat settings (`plan 05`); persisted, edited in the settings dialog.
     settings: Settings,
     /// Editors + status for the settings dialog (rendered by settings_ui).
     pub(crate) settings_ui: SettingsUi,
     /// Bumps on every settings edit; the last writer wins the file write.
     save_generation: u64,
-    /// Streaming generation, if any (one in-flight at a time, `plan/01 §1`).
+    /// Streaming generation, if any (one in-flight at a time, `plan 01 §1`).
     generation: Option<GenerationHandle>,
     /// True while the input holds only whitespace — Send is disabled then.
     input_empty: bool,
     /// Handle of the main window, captured on first render; needed to touch
     /// window-bound components (dialog editors) from background tasks.
     window: Option<AnyWindowHandle>,
-    /// Set once the native traffic lights are hidden (`plan/03 §6`).
+    /// Set once the native traffic lights are hidden (`plan 03 §6`).
     native_buttons_hidden: bool,
     _subscriptions: Vec<Subscription>,
 }
@@ -173,7 +175,7 @@ impl Dislexia {
     pub fn with_settings(settings: Settings, window: &mut Window, cx: &mut Context<Self>) -> Self {
         let store = cx.new(|_| ChatStore::load(&crate::history::chats_dir()));
         let input = cx.new(|cx| {
-            // Multiline composer, min 4 rows (zcode-like, plan/03 §1).
+            // Multiline composer, min 4 rows (zcode-like, plan 03 §1).
             TextareaState::new(window, cx)
                 .auto_grow(4, 12)
                 .submit_on_enter(true)
@@ -202,6 +204,11 @@ impl Dislexia {
             ),
             // Repaint the title bar so the custom controls dim with the window.
             cx.observe_window_activation(window, |_this, _window, cx| cx.notify()),
+            // Remember where the window was left, so the next launch reopens
+            // there (`plan 03 §6`). Fires on both move and resize.
+            cx.observe_window_bounds(window, |this, window, cx| {
+                this.remember_window_frame(window, cx);
+            }),
         ];
 
         // Every settings field commits on change; persistence is debounced.
@@ -262,7 +269,7 @@ impl Dislexia {
         this
     }
 
-    /// First-run experience (`plan/05 §6`): without a stored model, probe
+    /// First-run experience (`plan 05 §6`): without a stored model, probe
     /// `/api/tags` and auto-select the first model.
     fn first_run_check(&mut self, cx: &mut Context<Self>) {
         let probe_needed = self.settings.model.is_none();
@@ -339,7 +346,7 @@ impl Dislexia {
         }
     }
 
-    /// `esc` (`plan/03 §7`): stop the generation, but only when the composer
+    /// `esc` (`plan 03 §7`): stop the generation, but only when the composer
     /// is empty — otherwise esc belongs to the text editor / dialogs.
     fn handle_escape(&mut self, cx: &mut Context<Self>) {
         if self.input.read(cx).value().trim().is_empty() {
@@ -356,7 +363,7 @@ impl Dislexia {
     }
 
     /// Re-reads every settings editor into `self.settings`, records field
-    /// errors and schedules the debounced save (`plan/05 §3–4`).
+    /// errors and schedules the debounced save (`plan 05 §3–4`).
     fn commit_settings(&mut self, cx: &mut Context<Self>) {
         let raw_server_url = self.settings_ui.server_url.read(cx).value().to_string();
         match settings::normalize_server_url(&raw_server_url) {
@@ -373,7 +380,7 @@ impl Dislexia {
         let read = |state: &Entity<InputState>| state.read(cx).value().trim().to_string();
 
         // Bounded f64s and plain integers. An invalid field keeps its last
-        // good value and gets an inline hint (`plan/05 §3`); empty means
+        // good value and gets an inline hint (`plan 05 §3`); empty means
         // "not sent".
         let commit_f64 = |raw: String,
                           min: f64,
@@ -416,7 +423,7 @@ impl Dislexia {
         cx.notify();
     }
 
-    /// Restores the embedded text-fixer prompt (`plan/05 §1.1`).
+    /// Restores the embedded text-fixer prompt (`plan 05 §1.1`).
     pub fn reset_prompt(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         let default = settings::DEFAULT_SYSTEM_PROMPT.to_owned();
         self.settings.system_prompt = default.clone();
@@ -427,8 +434,31 @@ impl Dislexia {
         cx.notify();
     }
 
+    /// Stores the window's position and size on the entity; the debounced
+    /// save in `schedule_save` is what writes it (`plan 03 §6`).
+    fn remember_window_frame(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        // Native fullscreen reports the screen, not the frame the user picked;
+        // keep the last windowed frame so leaving fullscreen still fits.
+        if matches!(window.window_bounds(), WindowBounds::Fullscreen(_)) {
+            return;
+        }
+
+        let bounds = window.bounds();
+        let frame = settings::WindowFrame {
+            x: bounds.origin.x.as_f32(),
+            y: bounds.origin.y.as_f32(),
+            width: bounds.size.width.as_f32(),
+            height: bounds.size.height.as_f32(),
+            display: window.display(cx).and_then(|display| display.uuid().ok()),
+        };
+        if self.settings.window_frame != Some(frame) {
+            self.settings.window_frame = Some(frame);
+            self.schedule_save(cx);
+        }
+    }
+
     /// Writes settings to disk after `SAVE_DEBOUNCE` of quiet; the write
-    /// itself runs on the background executor (`plan/05 §4`).
+    /// itself runs on the background executor (`plan 05 §4`).
     fn schedule_save(&mut self, cx: &mut Context<Self>) {
         self.save_generation += 1;
         let generation = self.save_generation;
@@ -453,7 +483,7 @@ impl Dislexia {
     }
 
     /// `GET /api/tags` in the background; repopulates the model dropdown
-    /// (`plan/05 §5`).
+    /// (`plan 05 §5`).
     pub fn refresh_models(&mut self, cx: &mut Context<Self>) {
         let server_url = self.settings.server_url.clone();
         cx.spawn(async move |this, cx| {
@@ -471,7 +501,7 @@ impl Dislexia {
         .detach();
     }
 
-    /// Connection test against `/api/tags` (`plan/05 §6`).
+    /// Connection test against `/api/tags` (`plan 05 §6`).
     pub fn test_connection(&mut self, cx: &mut Context<Self>) {
         self.settings_ui.status = ConnectionStatus::Testing;
         cx.notify();
@@ -499,7 +529,7 @@ impl Dislexia {
         .detach();
     }
 
-    /// Persists one chat at message granularity (`plan/06 §3`): after the
+    /// Persists one chat at message granularity (`plan 06 §3`): after the
     /// user message and when a stream finishes — never per chunk. Chats
     /// without messages never create a file; the write itself is
     /// fire-and-forget on the background executor.
@@ -521,14 +551,14 @@ impl Dislexia {
     }
 
     /// Deletes a chat (sidebar, confirm dialog): drops it from memory and
-    /// removes the file in the background (`plan/06 §3`).
+    /// removes the file in the background (`plan 06 §3`).
     pub fn handle_delete_chat(&mut self, chat_id: Uuid, cx: &mut Context<Self>) {
         self.store.update(cx, |store, _| store.delete_chat(chat_id));
         cx.notify();
     }
 
     /// Pushes `settings_ui.models` into the dropdown, marking a stored model
-    /// that is missing on the server (`plan/05 §3`). The editors are
+    /// that is missing on the server (`plan 05 §3`). The editors are
     /// window-bound, so the update hops through the window handle.
     fn sync_model_select(&mut self, cx: &mut Context<Self>) {
         let models = self.settings_ui.models.clone();
@@ -560,14 +590,14 @@ impl Dislexia {
     }
 
     /// Appends the user message + placeholder and starts the stream
-    /// (`plan/01 §4`).
+    /// (`plan 01 §4`).
     fn send(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         let text = self.input.read(cx).value().trim().to_string();
         if text.is_empty() || self.generation.is_some() {
             return;
         }
         let Some(model) = self.settings.model.clone() else {
-            // `plan/03 §3`: no model selected → send blocked with a hint.
+            // `plan 03 §3`: no model selected → send blocked with a hint.
             self.store.update(cx, |store, _| {
                 let chat_id = store.active_chat_id().expect("store starts with a chat");
                 store.append_user_message(chat_id, &text);
@@ -626,7 +656,7 @@ impl Dislexia {
 
     /// Runs one generation: the blocking NDJSON loop on the background
     /// executor, chunks forwarded to the store on the main thread
-    /// (`plan/04 §5`). A `std::sync::mpsc` bridge keeps the dependency set
+    /// (`plan 04 §5`). A `std::sync::mpsc` bridge keeps the dependency set
     /// free of any async runtime; the foreground end polls with a short
     /// timer, which is invisible at chat cadence.
     fn spawn_generation(
@@ -654,7 +684,7 @@ impl Dislexia {
         let cancel = handle.cancel.clone();
 
         // Blocking producer: `ureq` POST + line-by-line NDJSON reads, the
-        // cancellation flag checked between lines (`plan/04 §6`).
+        // cancellation flag checked between lines (`plan 04 §6`).
         cx.background_executor()
             .spawn(async move {
                 match client.chat(&request, &cancel) {
@@ -742,7 +772,7 @@ async fn list_models_background(
         .await
 }
 
-/// First-run probe: the first installed model for auto-select (`plan/05 §6`).
+/// First-run probe: the first installed model for auto-select (`plan 05 §6`).
 async fn probe_first_model(this: &WeakEntity<Dislexia>, cx: &mut AsyncApp) -> Option<String> {
     let server_url = this
         .upgrade()?

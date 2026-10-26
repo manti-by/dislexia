@@ -1,5 +1,5 @@
 //! The chat pane: transcript scroll area + composer (input, Send/Stop)
-//! (`plan/03-ui-layout.md` §1). All data comes from the `Dislexia` root.
+//! (`wiki/pages/2026-10-26-03-ui-layout.md` §1). All data comes from the `Dislexia` root.
 //!
 //! The composer sits at the window bottom as a floating rounded box, with
 //! the Send button inside its bottom-right corner (zcode-like).

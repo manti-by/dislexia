@@ -1,7 +1,7 @@
 ---
 title:              # Human-readable page title (should match the H1 below)
 date: YYYY-MM-DD    # Session date — `date +%F`
-type:               # debug | investigation | code-review | implementation
+type:               # debug | investigation | code-review | implementation | reference
 status:             # resolved | open | in-progress | reference
 session_id:         # agent session id (OpenCode / Claude Code)
 services: []        # e.g. [main, auth, cache, etc]

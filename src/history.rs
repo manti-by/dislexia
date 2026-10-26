@@ -1,4 +1,4 @@
-//! Chat history data model and store (`plan/06-chat-history.md`).
+//! Chat history data model and store (`wiki/pages/2026-10-26-06-chat-history.md`).
 //!
 //! `ChatStore` is a plain struct — the app hosts it inside a GPUI entity and
 //! calls `cx.notify()` after mutations; keeping the methods context-free
@@ -22,7 +22,7 @@ pub struct Chat {
     pub messages: Vec<Message>,
 }
 
-/// A single message; exactly the content replayed to Ollama (`plan/06 §6`).
+/// A single message; exactly the content replayed to Ollama (`plan 06 §6`).
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Message {
     pub role: Role,
@@ -50,7 +50,7 @@ pub enum MessageStatus {
     },
     /// Cancelled by the user; partial text is kept.
     Stopped,
-    /// The stream failed; carries the user-facing wording (`plan/04 §7`).
+    /// The stream failed; carries the user-facing wording (`plan 04 §7`).
     Error {
         message: String,
     },
@@ -87,7 +87,7 @@ impl Default for ChatStore {
 
 impl ChatStore {
     /// Starts with one fresh untitled chat, active — the app never renders
-    /// without a transcript (`plan/06 §3`, launch row).
+    /// without a transcript (`plan 06 §3`, launch row).
     pub fn new() -> Self {
         let mut store = Self {
             chats: Vec::new(),
@@ -105,7 +105,7 @@ impl ChatStore {
         store
     }
 
-    /// Loads every chat file in `dir` (`plan/06 §2–3`): newest first, active
+    /// Loads every chat file in `dir` (`plan 06 §2–3`): newest first, active
     /// chat = newest. A fresh in-memory chat starts when there are none.
     /// Unparseable files are renamed `<uuid>.json.bad` — logged, skipped,
     /// never deleted.
@@ -165,7 +165,7 @@ impl ChatStore {
     }
 
     /// Removes a chat from memory and deletes its file, if any
-    /// (`plan/06 §3`). The active selection moves to the newest remaining
+    /// (`plan 06 §3`). The active selection moves to the newest remaining
     /// chat (a fresh untitled one when the store empties).
     pub fn delete_chat(&mut self, id: Uuid) {
         self.chats.retain(|chat| chat.id != id);
@@ -190,7 +190,7 @@ impl ChatStore {
         &self.chats
     }
 
-    /// Chats sorted newest-first — the sidebar order (`plan/06 §5`).
+    /// Chats sorted newest-first — the sidebar order (`plan 06 §5`).
     pub fn sorted_chats(&self) -> Vec<&Chat> {
         let mut chats: Vec<&Chat> = self.chats.iter().collect();
         chats.sort_by_key(|chat| Reverse(chat.updated_at));
@@ -219,7 +219,7 @@ impl ChatStore {
     }
 
     /// Appends the just-typed user message and derives the title from the
-    /// first one (`plan/06 §3–4`).
+    /// first one (`plan 06 §3–4`).
     pub fn append_user_message(&mut self, chat_id: Uuid, text: &str) {
         let Some(chat) = self.chat_mut(chat_id) else {
             return;
@@ -286,7 +286,7 @@ impl ChatStore {
     }
 
     /// Marks the streaming message as failed with the user-facing wording
-    /// from the error mapping (`plan/04 §7`).
+    /// from the error mapping (`plan 04 §7`).
     pub fn fail_streaming(&mut self, chat_id: Uuid, error: String) {
         let Some(chat) = self.chat_mut(chat_id) else {
             return;
@@ -317,7 +317,7 @@ pub fn chats_dir() -> std::path::PathBuf {
     crate::settings::data_dir().join("chats")
 }
 
-/// Writes one chat file atomically (`plan/06 §2`): tmp + rename.
+/// Writes one chat file atomically (`plan 06 §2`): tmp + rename.
 pub fn save_chat(dir: &std::path::Path, chat: &Chat) -> anyhow::Result<()> {
     std::fs::create_dir_all(dir)?;
     let json = serde_json::to_string_pretty(chat)?;
@@ -338,7 +338,7 @@ fn remove_chat_file(dir: &std::path::Path, id: Uuid) -> std::io::Result<()> {
 }
 
 /// Sidebar group header for a chat by `updated_at`, local time
-/// (`plan/06 §4`): Today / Yesterday / Previous 7 days / Older.
+/// (`plan 06 §4`): Today / Yesterday / Previous 7 days / Older.
 pub fn group_label(
     updated_at: chrono::DateTime<chrono::Utc>,
     now: chrono::DateTime<chrono::Utc>,
@@ -362,7 +362,7 @@ pub fn group_label(
 }
 
 /// Sidebar title from the first user message: first line, whitespace
-/// collapsed, markdown fences stripped, cut at 48 chars (`plan/06 §4`).
+/// collapsed, markdown fences stripped, cut at 48 chars (`plan 06 §4`).
 pub fn derive_title(text: &str) -> String {
     let first_line = text
         .lines()

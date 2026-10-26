@@ -18,7 +18,7 @@ BUNDLE="${BUNDLE_DIR:-target}/${APP}.app"
 [ -f "$BUILD" ] || { echo "missing $BUILD — run cargo build --release first" >&2; exit 1; }
 
 # The bundle needs the icon; regenerate it when out of date.
-if [ ! -f assets/icon.icns ] || [ media/icon-typewriter.svg -nt assets/icon.icns ]; then
+if [ ! -f assets/icon.icns ] || [ media/dislexia.svg -nt assets/icon.icns ]; then
     scripts/make-icons.sh
 fi
 
@@ -39,7 +39,8 @@ cat > "${BUNDLE}/Contents/Info.plist" <<PLIST
   <key>CFBundleVersion</key>           <string>1</string>
   <key>CFBundleIconFile</key>          <string>icon</string>
   <key>NSHighResolutionCapable</key>   <true/>
-  <!-- No LSUIElement: Dock visibility is toggled at runtime (plan/08 §4). -->
+  <!-- No LSUIElement: Dock visibility is toggled at runtime
+       (wiki/pages/2026-10-26-08-tray-and-lifecycle.md §4). -->
 </dict>
 </plist>
 PLIST

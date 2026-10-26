@@ -2,21 +2,32 @@
 
 | File | Purpose |
 |---|---|
-| `icon-typewriter.svg` | **The** Dislexia icon: minimal monochrome typewriter ("writing machine"). Single glyph, pure black on transparent, 24-unit viewBox. Source for everything icon-related in the app. |
-| `icon-preview-512.png` | Quick preview render of the SVG (for humans); not used by the app or build. |
+| `dislexia.svg` | **The** Dislexia icon: a single hand-drawn spiral stroke, white ink on a transparent 265×278 canvas. Source for everything icon-related in the app. |
+
+Nothing else lives here — the previous typewriter glyph and its PNG preview are gone.
 
 ## Origin & license
 
-- Glyph: **"typewriter"** from [Material Design Icons](https://pictogrammers.com/library/mdi/icon/typewriter/) by Pictogrammers, license **Apache-2.0** (use and modification allowed; attribution not required but kept here on purpose).
-- The checked-in SVG is a re-export of the original icon: path data is unchanged; `width`/`height` were fixed to `512` and `fill` pinned to `#000000` so rasterizers that mishandle `1em`/`currentColor` still produce correct output.
+- Artwork authored for this project (single path, `stroke-width="10"`, no fill). Project license: BSD-3-Clause (see the repository root).
 
-## How this file is used (see `plan/02-project-setup.md` §7 and `plan/07-theme.md` §5)
+## How this file is used (see `plan 02 §8` and `plan 07 §5`)
 
 All icon assets consumed by the app are **generated** from this one SVG — never hand-edit the PNGs:
 
 | Generated file | Made by |
 |---|---|
-| `assets/icon.icns` (app bundle icon) | `scripts/make-icons.sh`: rasterize SVG → 1024px PNG → `iconutil`-style iconset → `.icns` |
-| `assets/tray-16@1x.png`, `assets/tray-32@2x.png` | same script: rasterize at 16px / 32px, then `scripts/png-template.py` converts the ink to alpha (black glyph on transparency); loaded as **template** images so macOS tints them for light/dark menu bars |
+| `assets/icon.icns` (app bundle icon) | `scripts/make-icons.sh`: `svg-glyph.py` → rasterize → `png-template.py` → iconset → `.icns` |
+| `assets/tray-16@1x.png`, `assets/tray-32@2x.png` | same script: the glyph is rasterized a second time with a tighter margin and a heavier stroke (optical sizing), then `sips`-downsized; loaded as **template** images so macOS tints them for light/dark menu bars |
 
-If the app icon ever changes, replace `icon-typewriter.svg` here and re-run the script — do not edit derived files under `assets/`.
+Two normalization steps sit between the art and the rasterizer, because the
+source is drawn for a dark canvas:
+
+- `scripts/svg-glyph.py` turns the white ink black, squares the canvas and adds
+  a margin. The app icon gets a macOS-sized margin (9%); the tray glyph a tight
+  one (6%) plus a 1.25× stroke, because a hairline mark disappears at 16px.
+- `scripts/png-template.py` converts the rasterized ink to alpha. `qlmanage`
+  draws on opaque white; without this the icon is a white square, in the Dock
+  as well as in the menu bar.
+
+If the app icon ever changes, replace `dislexia.svg` here and re-run
+`make icons` — do not edit derived files under `assets/`.

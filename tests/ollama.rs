@@ -1,5 +1,5 @@
 //! Integration tests: `OllamaClient` against the hand-written mock Ollama
-//! server (`plan/09-testing.md` §2). No real network — loopback only.
+//! server (`wiki/pages/2026-10-26-09-testing.md` §2). No real network — loopback only.
 
 use std::time::Duration;
 

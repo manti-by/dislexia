@@ -1,6 +1,27 @@
+---
+title: 04 — Ollama client
+date: 2026-10-26
+type: reference
+status: reference
+session_id: -
+services: [ollama]
+branch: master
+tickets: []
+tags: [plan, ollama, streaming, errors]
+related: [2026-10-26-01-architecture.md, 2026-10-26-05-settings.md, 2026-10-26-06-chat-history.md, 2026-10-26-09-testing.md, 2026-10-26-build-plan.md]
+---
+
 # 04 — Ollama client
 
-Back to [BUILD_PLAN.md](../BUILD_PLAN.md).
+Part of the build plan — start at [[2026-10-26-build-plan]].
+
+## TL;DR
+
+A blocking `ureq` client for `GET /api/tags` and `POST /api/chat`: NDJSON
+stream parsing, an `Arc<AtomicBool>` cancellation flag checked between lines, and
+an error taxonomy that maps one-to-one onto the wording the user sees.
+
+---
 
 The `ollama` module is **pure blocking Rust** (no GPUI imports) so it is unit-testable and runs unchanged on GPUI's background executor. All HTTP goes through `ureq` 3.
 
@@ -16,9 +37,13 @@ impl OllamaClient {
     pub fn new(server_url: &str) -> Result<Self, OllamaError>;   // validates + builds agent
     pub fn list_models(&self) -> Result<Vec<String>, OllamaError>;
     pub fn test_connection(&self) -> Result<usize, OllamaError>; // = list_models().len()
-    /// Blocking iterator over stream chunks. See §5–6 for loop/cancellation contract.
-    pub fn chat(&self, req: ChatRequest) -> Result<impl Iterator<Item = Result<ChatChunk, OllamaError>>, OllamaError>;
+    /// Blocking NDJSON iterator. See §5–6 for the loop/cancellation contract.
+    pub fn chat(&self, request: &ChatRequest, cancel: &CancelFlag)
+        -> Result<ChatStream, OllamaError>;
 }
+
+/// `Arc<AtomicBool>`: `cancel()`, `is_cancelled()`, `check()` (→ `Err(Cancelled)`).
+pub struct CancelFlag(Arc<AtomicBool>);
 ```
 
 The client is rebuilt whenever `server_url` changes in settings.
@@ -27,7 +52,7 @@ The client is rebuilt whenever `server_url` changes in settings.
 
 | Endpoint | Method | Purpose |
 |---|---|---|
-| `/api/tags` | GET | List installed models (settings dropdown, connection test) |
+| `/api/tags` | GET | List installed models (settings model select, connection test) |
 | `/api/chat` | POST, `stream: true` | Chat completion (the only generation path) |
 
 Not used in v1: `/api/generate`, `/api/embeddings`, `/api/show`, `/api/pull`, `/api/delete`.
@@ -61,9 +86,9 @@ Default server URL: `http://127.0.0.1:11434`.
 Rules:
 
 - The **system message is always first** and only present when `system_prompt` is non-empty.
-- The full conversation history is resent each turn (`/api/chat` is stateless). Messages stored in the chat file ([06](06-chat-history.md)) are exactly what gets replayed; error-status assistant messages are **not** replayed.
+- The full conversation history is resent each turn (`/api/chat` is stateless). Messages stored in the chat file ([[2026-10-26-06-chat-history]]) are exactly what gets replayed; error-status assistant messages are **not** replayed.
 - `options` contains only fields the user set (`Option` fields serialize with `skip_serializing_if`); `options` omitted entirely when empty.
-- Mapping to settings: see [05-settings.md](05-settings.md) §2.
+- Mapping to settings: see [[2026-10-26-05-settings]] §2.
 
 ## 4. Response — NDJSON stream
 
@@ -127,25 +152,44 @@ Each yielded delta appends to the streaming assistant message and calls `cx.noti
 
 ## 6. Cancellation
 
-- `GenerationHandle { flag: Arc<AtomicBool>, chat_id, started_at }` stored on `Dislexia`.
-- Stop button / `esc` sets `flag = true`; the loop's `cancelled.check()` returns `Err(Cancelled)` before parsing the next line.
+- `GenerationHandle { cancel: CancelFlag, chat_id, started_at }` stored on `Dislexia`.
+- Stop button / `esc` calls `cancel.cancel()`; `ChatStream::next` runs `cancel.check()` before parsing the next line and returns `Err(OllamaError::Cancelled)`.
 - Worst-case latency = one read timeout (30s) if the server stalls mid-line; acceptable for v1. (Do not try to hard-close the socket from another thread with `ureq`; document this as a known limitation.)
-- On cancel: keep the partial assistant text, status = `Complete` with meta "(stopped)".
+- On cancel: keep the partial assistant text, status = `Stopped`, meta shows "(stopped)".
 
 ## 7. Error taxonomy → UI copy
 
 | `OllamaError` variant | Trigger | UI message |
 |---|---|---|
-| `Connection` | TCP refused/failed | `Can't reach Ollama at {url} — is "ollama serve" running?` |
+| `Connection(String)` | TCP refused/failed, DNS, unreachable | `Can't reach Ollama at {url} — is "ollama serve" running?` |
 | `Timeout` | connect/read timeout | `Ollama timed out. Try again or check the model.` |
 | `Http { 404 }` | unknown model | `Model "{model}" not found. Open Settings → Model.` |
 | `Http { status, body }` | other non-200 | `Ollama error {status}: {first line of body}` |
-| `Api { message }` | `"error"` field in stream | raw message |
+| `Api(String)` | `"error"` field in stream | raw message |
 | `Parse` | malformed NDJSON | `Got an unexpected response from Ollama (parse error).` |
-| `Io` | line read error | generic wording + log |
+| `Io` | line read error, socket dropped | `Connection to Ollama was interrupted.` |
+| `Cancelled` | Stop / `esc` set the flag | `Stopped.` |
+
+ureq reports refused/dropped sockets as `Io`; `transport_kind` promotes the ones that mean
+"server down" (`refused`, `unreachable`, `connection reset`, `broken pipe`) to `Connection`, so
+the common failure gets the actionable wording.
 
 Also: 3s connect timeout means "server down" is detected fast and does not block the UI (which stays responsive regardless — the call is on the background executor).
 
 ## 8. Alternative considered (not chosen)
 
 `gpui-kit` re-exports an `http_client` module (async HTTP abstraction from the Zed stack). Rejected for v1: its async surface pulls in the executor coupling and gains us nothing over a blocking `BufRead` loop for NDJSON. Revisit only if we need request middleware (auth, proxies).
+
+---
+
+## Follow-ups
+
+- Cancel latency is bounded by the 30s read timeout when the server stalls mid-line — accepted for v1 (§6).
+- The `#[serde(untagged)]` sketch in §4 is superseded by the flat `ChatChunk` struct noted below it; rewrite the sketch when the section is next touched.
+- Consistency check 2026-10-26: client signatures (`chat(&request, &CancelFlag) -> ChatStream`), the `Cancelled` variant and the `Io` wording now match `src/ollama/`.
+
+## References
+
+- Related: [[2026-10-26-01-architecture]], [[2026-10-26-05-settings]],
+  [[2026-10-26-06-chat-history]], [[2026-10-26-09-testing]], [[2026-10-26-build-plan]]
+- Code: `src/ollama/client.rs`, `src/ollama/types.rs`, `src/ollama/mod.rs`
