@@ -1,12 +1,14 @@
-//! objc2 helpers: Dock activation policy and app activation
-//! (`plan/08 §5`). Only `main.rs`, `app.rs` and `tray.rs` may use this.
+//! objc2 helpers: Dock activation policy, app activation and window chrome
+//! (`plan/08 §5`, `plan/03 §6`). Only `main.rs`, `app.rs` and `tray.rs` may
+//! use this.
 //!
 //! macOS-only by design; the module boundary keeps a port thinkable.
 
 use objc2_app_kit::{
     NSApplication, NSApplicationActivationOptions, NSApplicationActivationPolicy,
-    NSRunningApplication,
+    NSRunningApplication, NSView, NSWindowButton,
 };
+use raw_window_handle::{HasWindowHandle, RawWindowHandle};
 
 /// Where the app icon lives: in the Dock with windows open, or hidden while
 /// the app sits in the tray.
@@ -36,4 +38,32 @@ pub fn activate_app() {
     #[allow(deprecated)]
     let options = NSApplicationActivationOptions::ActivateIgnoringOtherApps;
     NSRunningApplication::currentApplication().activateWithOptions(options);
+}
+
+/// Hides AppKit's standard close/minimize/zoom buttons so the app can draw
+/// its own 12px controls (`plan/03 §6`). Returns whether a live native window
+/// was reached; callers may retry on the next frame while it is false.
+pub fn hide_window_buttons(window: &gpui_kit::Window) -> bool {
+    let Ok(handle) = HasWindowHandle::window_handle(window) else {
+        return false;
+    };
+    let RawWindowHandle::AppKit(handle) = handle.as_raw() else {
+        return false;
+    };
+    // SAFETY: GPUI hands out the `NSView` of a live window on the main thread,
+    // which is where this is called from.
+    let view = unsafe { &*(handle.ns_view.as_ptr() as *const NSView) };
+    let Some(native_window) = view.window() else {
+        return false;
+    };
+    for button in [
+        NSWindowButton::CloseButton,
+        NSWindowButton::MiniaturizeButton,
+        NSWindowButton::ZoomButton,
+    ] {
+        if let Some(button) = native_window.standardWindowButton(button) {
+            button.setHidden(true);
+        }
+    }
+    true
 }

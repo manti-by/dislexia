@@ -20,37 +20,48 @@ pub fn render(this: &mut Dislexia, cx: &mut Context<Dislexia>) -> impl IntoEleme
     let send_disabled = this.input_empty() || streaming;
     let input = this.input().clone();
 
-    let mut transcript = v_flex()
-        .id("transcript")
-        .flex_1()
-        .min_h_0()
-        .track_scroll(this.scroll_handle())
-        .overflow_y_scroll()
+    // The scroll container takes the full pane width and so does the message
+    // column inside it: a definite width is what lets the long markdown and
+    // bubble text wrap instead of running past the window edge.
+    let has_messages = chat.as_ref().is_some_and(|chat| !chat.messages.is_empty());
+    let mut content = v_flex()
+        .id("transcript-content")
+        .w_full()
         .px_4()
         .pt_3()
         .pb_1()
-        .gap_3()
-        .max_w(px(860.))
-        .mx_auto();
+        .gap_3();
+    if !has_messages {
+        content = content.h_full();
+    }
 
     match chat {
-        Some(chat) if !chat.messages.is_empty() => {
+        Some(chat) if has_messages => {
             for (index, message) in chat.messages.iter().enumerate() {
-                transcript =
-                    transcript.child(message::render(format!("msg-{}", index), message, cx));
+                content = content.child(message::render(format!("msg-{}", index), message, cx));
             }
         }
         _ => {
-            transcript = transcript.child(
+            content = content.child(
                 h_flex()
                     .flex_1()
                     .items_center()
                     .justify_center()
+                    .text_size(px(13.))
                     .text_color(theme.muted_foreground)
                     .child("Start a conversation with a local model ↓"),
             );
         }
     }
+
+    let transcript = v_flex()
+        .id("transcript")
+        .w_full()
+        .flex_1()
+        .min_h_0()
+        .track_scroll(this.scroll_handle())
+        .overflow_y_scroll()
+        .child(content);
 
     let action_button = if streaming {
         Button::new("stop")
@@ -73,10 +84,19 @@ pub fn render(this: &mut Dislexia, cx: &mut Context<Dislexia>) -> impl IntoEleme
 
     v_flex()
         .flex_1()
+        .h_full()
+        .min_w_0()
         .min_h_0()
         .bg(theme.background)
         // Transcript
-        .child(div().flex_1().min_h_0().overflow_hidden().child(transcript))
+        .child(
+            div()
+                .w_full()
+                .flex_1()
+                .min_h_0()
+                .overflow_hidden()
+                .child(transcript),
+        )
         // Composer: floating rounded box at the window bottom, button inside
         // its bottom-right corner.
         .child(

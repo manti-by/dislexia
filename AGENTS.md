@@ -42,12 +42,12 @@ and history work without one.
 | `src/settings.rs` | `Settings` schema, defaults (embedded text-fixer prompt), load/save with atomic writes. |
 | `src/history.rs` | `ChatStore`: chats in memory, one JSON file per chat, atomic writes, corrupt-file tolerance. |
 | `src/theme.rs` | OS appearance observer + the only place colors are assigned (zcode-like palette). |
-| `src/ui/` | Rendering and local interaction state only: `sidebar.rs`, `chat_pane.rs`, `message.rs`, `settings_ui.rs`. No HTTP, no file I/O. |
+| `src/ui/` | Rendering and local interaction state only: `sidebar.rs`, `chat_pane.rs`, `message.rs`, `settings_ui.rs`, `title_bar.rs` (custom 12px window controls). No HTTP, no file I/O. |
 | `src/tray.rs` | Tray icon, menu, event thread; forwards intents to `Dislexia`. Never dropped — dropping removes the icon. |
-| `src/platform/macos.rs` | objc2 helpers: Dock activation policy, app activation. Only user: `main.rs` and `tray.rs`. |
+| `src/platform/macos.rs` | objc2 helpers: Dock activation policy, app activation, native traffic-light hiding. Only users: `main.rs`, `app.rs` and `tray.rs`. |
 | `prompts/default-system-prompt.md` | The default system prompt, embedded with `include_str!`. Product copy; change deliberately. |
 | `media/` | Source art. `icon-typewriter.svg` is the single icon source; everything in `assets/` is generated from it. |
-| `scripts/` | `make-icons.sh` (SVG → icns + tray PNGs), `bundle.sh` (release build → `target/Dislexia.app`). |
+| `scripts/` | `make-icons.sh` (SVG → icns + tray PNGs), `png-template.py` (opaque raster → black+alpha template), `bundle.sh` (release build → `target/Dislexia.app`). |
 | `tests/ollama.rs` | Integration tests against a hand-written mock Ollama server (`tests/common/`). |
 
 ## Conventions

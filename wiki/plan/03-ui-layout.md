@@ -23,7 +23,7 @@ The look is **zcode-like**: dark-first, terminal density, quiet chrome, monospac
 │               │                                                       │
 │               ├───────────────────────────────────────────────────────┤
 │               │ ┌───────────────────────────────────────────────┐     │
-│               │ │ Ask anything…  (TextArea, 1–6 rows, grows)   │ [Send] │
+│               │ │ Paste text to fix…  (TextArea, 1–6 rows, grows) │ [Send] │
 │               │ └───────────────────────────────────────────────┘     │
 └───────────────┴───────────────────────────────────────────────────────┘
 ```
@@ -32,9 +32,9 @@ The look is **zcode-like**: dark-first, terminal density, quiet chrome, monospac
 
 | Region | Implementation | Notes |
 |---|---|---|
-| Title bar | kit `TitleBar` | Shows app name + active model; right side: settings icon button, new-chat icon button. Native traffic lights. |
-| Sidebar (240px) | `div().flex().flex_col()` + kit `List` | "New chat" button at top; grouped chat list (Today / Yesterday / Older — see 06 §4); bottom: settings entry + server status dot (green/red). Collapsible via `Cmd+B` (stretch). |
-| Transcript | kit `List` (virtualized) | Uniform full-width column, max ~72ch readable measure. Auto-scroll to bottom while streaming unless the user scrolled up. |
+| Title bar | kit `TitleBar` | Shows a 12px app name + active model; right side: settings icon button, new-chat icon button. The native AppKit traffic lights are hidden and replaced by custom 12px controls (`src/ui/title_bar.rs`). |
+| Sidebar (resizable, default 150px, 150–420px) | `h_resizable` split + kit `List` | "New chat" button at top; grouped chat list (Today / Yesterday / Older — see 06 §4); bottom: settings entry + server status dot (grey). Drag the divider to resize; the sidebar keeps its width when the window resizes. Collapsible via `Cmd+B` (stretch). |
+| Transcript | kit `List` (virtualized) | Full-width column with a 16px inset; text wraps to the pane width. Auto-scroll to bottom while streaming unless the user scrolled up. |
 | Message row | custom light wrapper (see §2) | No chat bubbles on the assistant side — flat blocks, zcode-style. |
 | Input area | kit `TextArea` (auto-grow 4–12 rows) inside a floating rounded box at the window bottom; the Send/Stop button is overlaid inside the box's bottom-right corner (zcode-like; changed from the original border-top bar in M7 polish) | `Enter` sends; `Shift+Enter` newline. While streaming the button becomes **Stop** (destructive variant). Disabled (dimmed) while streaming. |
 
@@ -44,7 +44,7 @@ The look is **zcode-like**: dark-first, terminal density, quiet chrome, monospac
 user:      <surface panel bg, rounded 6, own max-width, right-aligned to 80% column>
 assistant: left 2px accent-colored bar + markdown body (kit Markdown component),
            dim monospace meta line above (model · elapsed seconds), streaming cursor "▌"
-error:     assistant-style block with red bar + error text + "Retry" text button
+error:     assistant-style block with error-colored bar + error text + "Retry" text button
 ```
 
 Streaming cursor: append `▌` while `status == Streaming`; swap to nothing on completion. Show elapsed time from first chunk to done-chunk (stats arrive in the final chunk — [04](04-ollama-client.md) §5).
@@ -54,7 +54,7 @@ Streaming cursor: append `▌` while `status == Streaming`; swap to nothing on c
 Kit `Modal` centered over a scrim, ~560px wide, sections separated by hairlines. Changes are **saved on every field change** (debounced 300ms) — there is no OK/Cancel in v1.
 
 **Connection**
-- Server URL — `Input` (mono font), validated on blur; invalid URL → inline red hint
+- Server URL — `Input` (mono font), validated on blur; invalid URL → inline error hint
 - Status line + **Test** button → calls `/api/tags`: `● Connected — 5 models` / `● Cannot reach server` (with the Ollama error text)
 
 **Model**
@@ -92,12 +92,13 @@ All fields map 1:1 to the Settings schema in [05-settings.md](05-settings.md).
 
 ## 5. Theming hookup
 
-All colors come from the kit theme (`ActiveTheme`) — screens must contain **no hard-coded colors**; the only hex values live in [07-theme.md](07-theme.md). Typography: UI font default; meta lines `.font_family("mono")` small + dim.
+All colors come from the kit theme (`ActiveTheme`) — screens must contain **no hard-coded colors**; the only hex values live in [07-theme.md](07-theme.md). Typography: UI font default, message body 13px, meta lines `.font_family("mono")` 11px + dim.
 
 ## 6. Sizing & window
 
-- Default window: 1000×680, min 720×480. Remember last frame? — stretch (M7).
+- Default window: 800×600, min 480×360. Remember last frame? — stretch (M7).
 - Window title shows active model; set via window titlebar API or TitleBar label.
+- Window controls: three 12px circles (close/minimize/zoom) at the leading edge, 8px apart. macOS 27 draws its native traffic lights at 14px and AppKit does not scale them, so `platform::macos::hide_window_buttons` hides the native ones and the kit `TitleBar` hosts the custom controls (`src/ui/title_bar.rs`). Hovering the cluster reveals the glyphs; clicks map to `remove_window` / `minimize_window` / `zoom_window`.
 
 ## 7. Actions & keyboard shortcuts
 

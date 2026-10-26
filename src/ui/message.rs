@@ -36,6 +36,7 @@ fn render_user(
         v_flex()
             .id(id)
             .group("msg-row")
+            .w_full()
             .max_w(px(520.))
             .rounded(theme.radius)
             .bg(theme.sidebar)
@@ -50,7 +51,12 @@ fn render_user(
                     .child(meta_line("you", None, cx))
                     .child(copy_button("user-copy", content)),
             )
-            .child(div().mt_1().child(message.content.clone())),
+            .child(
+                div()
+                    .mt_1()
+                    .text_size(px(13.))
+                    .child(message.content.clone()),
+            ),
     )
 }
 
@@ -67,6 +73,8 @@ fn render_assistant(
         MessageStatus::Error { message: text } => (
             theme.danger,
             div()
+                .w_full()
+                .text_size(px(13.))
                 .text_color(theme.danger)
                 .child(text.clone())
                 .into_any_element(),
@@ -74,11 +82,16 @@ fn render_assistant(
         _status => (
             theme.primary,
             div()
+                .w_full()
+                .text_size(px(13.))
                 .text_color(theme.foreground)
-                .child(TextView::markdown(
-                    id.clone(),
-                    format!("{}{}", message.content, cursor(streaming)),
-                ))
+                .child(
+                    TextView::markdown(
+                        id.clone(),
+                        format!("{}{}", message.content, cursor(streaming)),
+                    )
+                    .text_size(px(13.)),
+                )
                 .into_any_element(),
         ),
     };

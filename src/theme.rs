@@ -1,118 +1,135 @@
 //! OS appearance tracking + the only place colors are assigned
-//! (`plan/07-theme.md`). The zcode-like palette is registered as two kit
-//! theme configs (dark is the primary identity); the theme follows the OS
+//! (`plan/07-theme.md`). The palette is greyscale; the only chromatic values
+//! are the three macOS window controls. It is registered as two kit theme
+//! configs (dark is the primary identity); the theme follows the OS
 //! appearance and switches live.
 
 use std::rc::Rc;
 
 use gpui_kit::component::{Theme, ThemeConfig, ThemeRegistry};
+use gpui_kit::{Hsla, rgb};
 
-/// Dark palette (`plan/07 §3`): near-black blue-leaning background,
-/// low-contrast chrome, one blue accent used sparingly.
+/// Standard macOS traffic-light colors. These are the app's only non-grey
+/// values (`plan/07 §3`); `ui/title_bar.rs` draws them.
+const WINDOW_CLOSE_RGB: u32 = 0xFF5F57;
+const WINDOW_MINIMIZE_RGB: u32 = 0xFEBC2E;
+const WINDOW_ZOOM_RGB: u32 = 0x28C840;
+
+/// Close, minimize, zoom — in that order.
+pub fn window_control_colors() -> (Hsla, Hsla, Hsla) {
+    (
+        Hsla::from(rgb(WINDOW_CLOSE_RGB)),
+        Hsla::from(rgb(WINDOW_MINIMIZE_RGB)),
+        Hsla::from(rgb(WINDOW_ZOOM_RGB)),
+    )
+}
+
+/// Dark palette (`plan/07 §3`): Warp-like near-black, low-contrast chrome,
+/// greyscale accents.
 const DARK_JSON: &str = r##"{
     "name": "Dislexia Dark",
     "mode": "dark",
     "radius": 6,
     "colors": {
-        "background": "#1A1B23",
-        "foreground": "#E6E6EF",
-        "border": "#2E303C",
-        "input.border": "#2E303C",
-        "ring": "#5B8CFF",
-        "selection.background": "#5B8CFF44",
-        "caret": "#E6E6EF",
-        "link.foreground": "#5B8CFF",
+        "background": "#0A0A0A",
+        "foreground": "#E5E5E5",
+        "border": "#2E2E2E",
+        "input.border": "#343434",
+        "ring": "#A8A8A8",
+        "selection.background": "#A8A8A840",
+        "caret": "#E5E5E5",
+        "link.foreground": "#A8A8A8",
 
-        "primary.background": "#5B8CFF",
-        "primary.hover.background": "#7AA3FF",
-        "primary.active.background": "#527CE8",
+        "primary.background": "#686868",
+        "primary.hover.background": "#717171",
+        "primary.active.background": "#555555",
         "primary.foreground": "#FFFFFF",
 
-        "secondary.background": "#22232D",
-        "secondary.hover.background": "#2A2B36",
-        "secondary.active.background": "#2E303C",
-        "secondary.foreground": "#E6E6EF",
+        "secondary.background": "#202020",
+        "secondary.hover.background": "#2A2A2A",
+        "secondary.active.background": "#313131",
+        "secondary.foreground": "#E5E5E5",
 
-        "muted.background": "#22232D",
-        "muted.foreground": "#8B8D9E",
+        "muted.background": "#202020",
+        "muted.foreground": "#979797",
 
-        "accent.background": "#2A2B36",
-        "accent.foreground": "#E6E6EF",
+        "accent.background": "#2A2A2A",
+        "accent.foreground": "#E5E5E5",
 
-        "popover.background": "#22232D",
-        "popover.foreground": "#E6E6EF",
+        "popover.background": "#1F1F1F",
+        "popover.foreground": "#E5E5E5",
 
-        "danger.background": "#E5546B",
-        "danger.foreground": "#FFFFFF",
-        "success.background": "#4CC38A",
-        "success.foreground": "#0F1A14",
-        "warning.background": "#E0AF68",
-        "warning.foreground": "#241C0D",
+        "danger.background": "#878787",
+        "danger.foreground": "#111111",
+        "success.background": "#AEAEAE",
+        "success.foreground": "#181818",
+        "warning.background": "#B7B7B7",
+        "warning.foreground": "#1D1D1D",
 
-        "sidebar.background": "#22232D",
-        "sidebar.foreground": "#E6E6EF",
-        "sidebar.border": "#2E303C",
-        "sidebar.accent.background": "#2A2B36",
-        "sidebar.accent.foreground": "#E6E6EF",
-        "sidebar.primary.background": "#5B8CFF",
+        "sidebar.background": "#070707",
+        "sidebar.foreground": "#E5E5E5",
+        "sidebar.border": "#2E2E2E",
+        "sidebar.accent.background": "#151515",
+        "sidebar.accent.foreground": "#E5E5E5",
+        "sidebar.primary.background": "#686868",
         "sidebar.primary.foreground": "#FFFFFF",
 
-        "title_bar.background": "#1A1B23",
-        "title_bar.border": "#2E303C"
+        "title_bar.background": "#181818",
+        "title_bar.border": "#2E2E2E"
     }
 }"##;
 
-/// Light counterpart (`plan/07 §3`) — a clean paper-like palette.
+/// Light counterpart (`plan/07 §3`) — a clean greyscale paper palette.
 const LIGHT_JSON: &str = r##"{
     "name": "Dislexia Light",
     "mode": "light",
     "radius": 6,
     "colors": {
-        "background": "#FAFAF7",
-        "foreground": "#1F2024",
-        "border": "#DDDDD5",
-        "input.border": "#DDDDD5",
-        "ring": "#3E6BFF",
-        "selection.background": "#3E6BFF33",
-        "caret": "#1F2024",
-        "link.foreground": "#3E6BFF",
+        "background": "#FAFAFA",
+        "foreground": "#202020",
+        "border": "#DFDFDF",
+        "input.border": "#DFDFDF",
+        "ring": "#6F6F6F",
+        "selection.background": "#6F6F6F33",
+        "caret": "#202020",
+        "link.foreground": "#666666",
 
-        "primary.background": "#3E6BFF",
-        "primary.hover.background": "#5C85FF",
-        "primary.active.background": "#3557E0",
+        "primary.background": "#666666",
+        "primary.hover.background": "#6F6F6F",
+        "primary.active.background": "#545454",
         "primary.foreground": "#FFFFFF",
 
-        "secondary.background": "#F0F0EB",
-        "secondary.hover.background": "#E6E6DF",
-        "secondary.active.background": "#DDDDD5",
-        "secondary.foreground": "#1F2024",
+        "secondary.background": "#F4F4F4",
+        "secondary.hover.background": "#ECECEC",
+        "secondary.active.background": "#DFDFDF",
+        "secondary.foreground": "#202020",
 
-        "muted.background": "#F0F0EB",
-        "muted.foreground": "#6E7079",
+        "muted.background": "#F4F4F4",
+        "muted.foreground": "#686868",
 
-        "accent.background": "#E8E8E1",
-        "accent.foreground": "#1F2024",
+        "accent.background": "#EDEDED",
+        "accent.foreground": "#202020",
 
         "popover.background": "#FFFFFF",
-        "popover.foreground": "#1F2024",
+        "popover.foreground": "#202020",
 
-        "danger.background": "#C8354F",
+        "danger.background": "#4A4A4A",
         "danger.foreground": "#FFFFFF",
-        "success.background": "#2E9E6B",
-        "success.foreground": "#F2FAF6",
-        "warning.background": "#B07C2A",
-        "warning.foreground": "#FFF9EC",
+        "success.background": "#6A6A6A",
+        "success.foreground": "#FFFFFF",
+        "warning.background": "#707070",
+        "warning.foreground": "#FFFFFF",
 
-        "sidebar.background": "#F0F0EB",
-        "sidebar.foreground": "#1F2024",
-        "sidebar.border": "#DDDDD5",
-        "sidebar.accent.background": "#E4E4DC",
-        "sidebar.accent.foreground": "#1F2024",
-        "sidebar.primary.background": "#3E6BFF",
+        "sidebar.background": "#F2F2F2",
+        "sidebar.foreground": "#202020",
+        "sidebar.border": "#DFDFDF",
+        "sidebar.accent.background": "#ECECEC",
+        "sidebar.accent.foreground": "#202020",
+        "sidebar.primary.background": "#666666",
         "sidebar.primary.foreground": "#FFFFFF",
 
-        "title_bar.background": "#FAFAF7",
-        "title_bar.border": "#DDDDD5"
+        "title_bar.background": "#FAFAFA",
+        "title_bar.border": "#DFDFDF"
     }
 }"##;
 
@@ -151,6 +168,32 @@ mod tests {
         for (json, mode) in [(DARK_JSON, "dark"), (LIGHT_JSON, "light")] {
             let config: ThemeConfig = serde_json::from_str(json).unwrap();
             assert_eq!(config.mode.name(), mode);
+        }
+    }
+
+    #[test]
+    fn bundled_themes_are_greyscale() {
+        fn check(value: &serde_json::Value) {
+            match value {
+                serde_json::Value::String(text)
+                    if text.starts_with('#') && (text.len() == 7 || text.len() == 9) =>
+                {
+                    let digits = text.trim_start_matches('#');
+                    let red = u8::from_str_radix(&digits[0..2], 16).unwrap();
+                    let green = u8::from_str_radix(&digits[2..4], 16).unwrap();
+                    let blue = u8::from_str_radix(&digits[4..6], 16).unwrap();
+                    assert_eq!(red, green, "{text} is not grey");
+                    assert_eq!(green, blue, "{text} is not grey");
+                }
+                serde_json::Value::Object(map) => map.values().for_each(check),
+                serde_json::Value::Array(items) => items.iter().for_each(check),
+                _ => {}
+            }
+        }
+
+        for json in [DARK_JSON, LIGHT_JSON] {
+            let value: serde_json::Value = serde_json::from_str(json).unwrap();
+            check(&value);
         }
     }
 }

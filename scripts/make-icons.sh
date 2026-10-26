@@ -11,6 +11,8 @@ SVG=media/icon-typewriter.svg
 OUT=assets
 WORK=icons.iconset
 MASTER=.master-1024.png
+TRAY_TMP=$(mktemp -d)
+trap 'rm -rf "$TRAY_TMP"' EXIT
 
 mkdir -p "$OUT" "$WORK"
 
@@ -47,8 +49,13 @@ icon_size 512 yes
 
 # Tray icons: template images (opaque black glyph on transparency), loaded
 # with set_template(true) so macOS adapts them to light/dark menu bars.
-sips -z 16 16 "$MASTER" --out "$OUT/tray-16@1x.png" >/dev/null
-sips -z 32 32 "$MASTER" --out "$OUT/tray-32@2x.png" >/dev/null
+# qlmanage rasterizes onto an opaque white canvas; png-template.py turns the
+# ink into alpha, otherwise macOS renders the image as a solid white square.
+for size in 16 32; do
+    sips -z "$size" "$size" "$MASTER" --out "$TRAY_TMP/tray-$size.png" >/dev/null
+done
+python3 scripts/png-template.py "$TRAY_TMP/tray-16.png" "$OUT/tray-16@1x.png"
+python3 scripts/png-template.py "$TRAY_TMP/tray-32.png" "$OUT/tray-32@2x.png"
 
 rm -f "$MASTER"
 rm -f "$OUT/icon.icns"

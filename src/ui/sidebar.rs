@@ -13,8 +13,12 @@ use gpui_kit::*;
 use crate::app::Dislexia;
 use crate::history::group_label;
 
-/// Width of the sidebar column.
-pub const WIDTH: f32 = 240.;
+/// Default width of the sidebar panel (`plan/03 §1`).
+pub const DEFAULT_WIDTH: f32 = 150.;
+/// Narrowest the panel can be dragged.
+pub const MIN_WIDTH: f32 = 150.;
+/// Widest the panel can be dragged; the chat pane keeps the rest.
+pub const MAX_WIDTH: f32 = 420.;
 
 pub fn render(this: &mut Dislexia, cx: &mut Context<Dislexia>) -> impl IntoElement {
     let theme = cx.theme();
@@ -94,12 +98,9 @@ pub fn render(this: &mut Dislexia, cx: &mut Context<Dislexia>) -> impl IntoEleme
     }
 
     v_flex()
-        .w(px(WIDTH))
+        .w_full()
         .h_full()
-        .flex_shrink_0()
         .bg(theme.sidebar)
-        .border_r_1()
-        .border_color(theme.sidebar_border)
         .p_2()
         .gap_2()
         .child(

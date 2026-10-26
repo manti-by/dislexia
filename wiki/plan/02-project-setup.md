@@ -49,9 +49,13 @@ tray-icon = "0.26"
 objc2 = "0.6"
 objc2-app-kit = { version = "0.3", features = [
     "NSApplication",
+    "NSButton",
     "NSRunningApplication",
+    "NSView",
     "NSWindow",
 ] }
+# Native NSWindow handle, to hide the system traffic lights (03 §6).
+raw-window-handle = "0.6"
 image = { version = "0.25", default-features = false, features = ["png"] }
 
 log = "0.4"
@@ -86,7 +90,7 @@ fn main() {
         // 2. settings + history load (05, 06)
         // 3. tray init — must happen on main thread (08-tray-and-lifecycle.md)
         // 4. open main window:
-        let opts = WindowOptions::default(); // windowed, default size 1000x680
+        let opts = WindowOptions::default(); // windowed, default size 800x600
         cx.open_window(opts, |window, cx| {
             window.activate_window();
             dislexia::ui::workspace(cx)      // returns Entity implementing Render
@@ -166,10 +170,11 @@ The app's icon is the minimal monochrome **typewriter** glyph at [`media/icon-ty
 ```
 media/icon-typewriter.svg
   ├─ rasterize 1024px → icon.iconset/{16,32,64,128,256,512,1024}{,@2x}.png → iconutil → assets/icon.icns
-  └─ rasterize 16px + 32px (black glyph, transparent bg)      → assets/tray-16@1x.png, tray-32@2x.png
+  └─ rasterize 1024px → sips 16px + 32px → png-template.py (ink → alpha) → assets/tray-16@1x.png, tray-32@2x.png
 ```
 
 - Rasterization on a dev Mac: `qlmanage -t -s <size>` or `rsvg-convert` if installed; `sips` handles PNG resizes.
+- `qlmanage` draws on an opaque white canvas. `scripts/png-template.py` rewrites each tray PNG as pure black with alpha derived from the ink, which is what a template image needs; without it macOS paints a solid white square. If the rasterizer already produced transparency, the script keeps that alpha.
 - Tray PNGs are **template images** (loaded with `set_template(true)` — [08](08-tray-and-lifecycle.md) §1, [07](07-theme.md) §5) so macOS adapts them to light/dark menu bars automatically.
 - `bundle.sh` (§7) calls `make-icons.sh` when `assets/` is out of date; the tray code at runtime reads the two tray PNGs via `image::load_from_memory` (embedded with `include_bytes!`).
 

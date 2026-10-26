@@ -14,7 +14,9 @@ use gpui_kit::component::Icon;
 use gpui_kit::component::button::{Button, ButtonVariants as _};
 use gpui_kit::component::input::{InputEvent, InputState, TextareaState};
 use gpui_kit::component::select::SelectEvent;
-use gpui_kit::component::{IconName, Sizable as _, TitleBar, h_flex, v_flex};
+use gpui_kit::component::{
+    IconName, Sizable as _, TitleBar, h_flex, h_resizable, resizable_panel, v_flex,
+};
 use gpui_kit::*;
 
 use uuid::Uuid;
@@ -158,6 +160,8 @@ pub struct Dislexia {
     /// Handle of the main window, captured on first render; needed to touch
     /// window-bound components (dialog editors) from background tasks.
     window: Option<AnyWindowHandle>,
+    /// Set once the native traffic lights are hidden (`plan/03 §6`).
+    native_buttons_hidden: bool,
     _subscriptions: Vec<Subscription>,
 }
 
@@ -173,28 +177,32 @@ impl Dislexia {
             TextareaState::new(window, cx)
                 .auto_grow(4, 12)
                 .submit_on_enter(true)
-                .placeholder("Paste text to fix, or ask anything… (Enter to send, Shift+Enter for a newline)")
+                .placeholder("Paste text to fix, or ask anything…")
         });
         let settings_ui = settings_ui::build_state(&settings, window, cx);
 
-        let subscriptions = vec![cx.subscribe_in(
-            &input,
-            window,
-            |this, input, event: &InputEvent, window, cx| match event {
-                // Enter sends (submit_on_enter turns Enter into the action;
-                // Shift+Enter still inserts a newline).
-                InputEvent::PressEnter { shift, .. } if !shift => {
-                    this.send(window, cx);
-                    input.update(cx, |state, cx| state.focus(window, cx));
-                }
-                InputEvent::PressEnter { .. } => {}
-                InputEvent::Change => {
-                    this.input_empty = input.read(cx).value().trim().is_empty();
-                    cx.notify();
-                }
-                _ => {}
-            },
-        )];
+        let subscriptions = vec![
+            cx.subscribe_in(
+                &input,
+                window,
+                |this, input, event: &InputEvent, window, cx| match event {
+                    // Enter sends (submit_on_enter turns Enter into the action;
+                    // Shift+Enter still inserts a newline).
+                    InputEvent::PressEnter { shift, .. } if !shift => {
+                        this.send(window, cx);
+                        input.update(cx, |state, cx| state.focus(window, cx));
+                    }
+                    InputEvent::PressEnter { .. } => {}
+                    InputEvent::Change => {
+                        this.input_empty = input.read(cx).value().trim().is_empty();
+                        cx.notify();
+                    }
+                    _ => {}
+                },
+            ),
+            // Repaint the title bar so the custom controls dim with the window.
+            cx.observe_window_activation(window, |_this, _window, cx| cx.notify()),
+        ];
 
         // Every settings field commits on change; persistence is debounced.
         for state in [
@@ -247,6 +255,7 @@ impl Dislexia {
             generation: None,
             input_empty: true,
             window: None,
+            native_buttons_hidden: false,
             _subscriptions: subscriptions,
         };
         this.first_run_check(cx);
@@ -753,6 +762,11 @@ impl Render for Dislexia {
         if self.window.is_none() {
             self.window = Some(window.window_handle());
         }
+        if !self.native_buttons_hidden {
+            self.native_buttons_hidden = crate::platform::macos::hide_window_buttons(window);
+        }
+        // Build the controls before borrowing the theme for the rest of the bar.
+        let window_controls = ui::title_bar::render(window.is_window_active(), cx);
         let theme = cx.theme();
         v_flex()
             .id("root")
@@ -778,16 +792,18 @@ impl Render for Dislexia {
             .bg(theme.background)
             .text_color(theme.foreground)
             .child(
-                TitleBar::new().child(
+                TitleBar::new().pl(px(12.)).child(
                     h_flex()
                         .w_full()
                         .items_center()
+                        .gap_2()
+                        .child(window_controls)
                         .child(
                             h_flex()
                                 .px_2()
                                 .gap_2()
-                                .child("Dislexia")
                                 .text_color(theme.muted_foreground)
+                                .child(div().text_size(px(12.)).child("Dislexia"))
                                 .child(
                                     h_flex().font_family(theme.mono_font_family.clone()).child(
                                         div()
@@ -822,11 +838,17 @@ impl Render for Dislexia {
                 ),
             )
             .child(
-                h_flex()
-                    .flex_1()
-                    .min_h_0()
-                    .child(ui::sidebar::render(self, cx))
-                    .child(ui::chat_pane::render(self, cx)),
+                div().flex_1().min_h_0().child(
+                    h_resizable("main-split")
+                        .child(
+                            resizable_panel()
+                                .size(px(ui::sidebar::DEFAULT_WIDTH))
+                                .size_range(px(ui::sidebar::MIN_WIDTH)..px(ui::sidebar::MAX_WIDTH))
+                                .fixed()
+                                .child(ui::sidebar::render(self, cx)),
+                        )
+                        .child(resizable_panel().child(ui::chat_pane::render(self, cx))),
+                ),
             )
     }
 }

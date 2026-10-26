@@ -6,7 +6,7 @@ Each milestone ends with a working `cargo run` (or bundled app) and its acceptan
 
 ## M0 — Project scaffold (S)
 
-**Scope** ([02](02-project-setup.md)): cargo init, `Cargo.toml` deps, `main.rs` opens a 1000×680 window with kit `TitleBar` and default theme; module skeleton files created empty; logging via `env_logger`; `scripts/make-icons.sh` generates `assets/` (icns + tray template PNGs) from [`media/icon-typewriter.svg`](../media/icon-typewriter.svg).
+**Scope** ([02](02-project-setup.md)): cargo init, `Cargo.toml` deps, `main.rs` opens an 800×600 window with kit `TitleBar` and default theme; module skeleton files created empty; logging via `env_logger`; `scripts/make-icons.sh` generates `assets/` (icns + tray template PNGs) from [`media/icon-typewriter.svg`](../media/icon-typewriter.svg).
 
 **Acceptance**
 - [x] `cargo run` opens the window; close quits (default behavior, fine for now)

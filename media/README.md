@@ -17,6 +17,6 @@ All icon assets consumed by the app are **generated** from this one SVG — neve
 | Generated file | Made by |
 |---|---|
 | `assets/icon.icns` (app bundle icon) | `scripts/make-icons.sh`: rasterize SVG → 1024px PNG → `iconutil`-style iconset → `.icns` |
-| `assets/tray-16@1x.png`, `assets/tray-32@2x.png` | same script: rasterize at 16px / 32px, black glyph on transparency, loaded as **template** images so macOS tints them for light/dark menu bars |
+| `assets/tray-16@1x.png`, `assets/tray-32@2x.png` | same script: rasterize at 16px / 32px, then `scripts/png-template.py` converts the ink to alpha (black glyph on transparency); loaded as **template** images so macOS tints them for light/dark menu bars |
 
 If the app icon ever changes, replace `icon-typewriter.svg` here and re-run the script — do not edit derived files under `assets/`.

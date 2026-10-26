@@ -1,6 +1,6 @@
 [package]
 name = "dislexia"
-version = "0.1.1"
+version = "0.2.1"
 edition = "2024"
 description = "macOS menu-bar chat client for local Ollama models"
 license = "BSD-3-Clause"
@@ -27,9 +27,13 @@ tray-icon = "0.26"
 objc2 = "0.6"
 objc2-app-kit = { version = "0.3", features = [
     "NSApplication",
+    "NSButton",
     "NSRunningApplication",
+    "NSView",
     "NSWindow",
 ] }
+# Native NSWindow handle, to hide the system traffic lights we draw ourselves.
+raw-window-handle = "0.6"
 image = { version = "0.25", default-features = false, features = ["png"] }
 
 log = "0.4"

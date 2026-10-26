@@ -39,18 +39,22 @@ Dark is the primary identity (zcode is a dark terminal); light is a clean counte
 
 | Role | Dark | Light | Used for |
 |---|---|---|---|
-| `background` | `#1A1B23` | `#FAFAF7` | App/window background |
-| `surface` | `#22232D` | `#F0F0EB` | Sidebar, user message block, input field bg |
-| `border` | `#2E303C` | `#DDDDD5` | Hairlines, input border |
-| `text` | `#E6E6EF` | `#1F2024` | Primary text |
-| `text_muted` | `#8B8D9E` | `#6E7079` | Meta lines, placeholders, timestamps |
-| `accent` | `#5B8CFF` | `#3E6BFF` | Send button, assistant bar, selection, focus ring |
-| `accent_hover` | `#7AA3FF` | `#5C85FF` | |
-| `error` | `#E5546B` | `#C8354F` | Error blocks, connection dot (down) |
-| `success` | `#4CC38A` | `#2E9E6B` | Connection dot (up), done state |
-| `warning` | `#E0AF68` | `#B07C2A` | Stopped state, "(missing on server)" |
+| `background` | `#0A0A0A` | `#FAFAFA` | App/window background |
+| `surface` | `#202020` | `#F4F4F4` | Secondary panels, input field bg |
+| `sidebar` | `#070707` | `#F2F2F2` | Sidebar and user message block |
+| `border` | `#2E2E2E` | `#DFDFDF` | Hairlines, input border |
+| `text` | `#E5E5E5` | `#202020` | Primary text |
+| `text_muted` | `#979797` | `#686868` | Meta lines, placeholders, timestamps |
+| `accent` | `#686868` | `#666666` | Send button, assistant bar, active-row bar |
+| `accent_hover` | `#717171` | `#6F6F6F` | |
+| `ring` / `link` | `#A8A8A8` | `#6F6F6F` / `#666666` | Focus ring, links, selection |
+| `error` | `#878787` | `#4A4A4A` | Error blocks, connection dot (down) |
+| `success` | `#AEAEAE` | `#6A6A6A` | Connection dot (up), done state |
+| `warning` | `#B7B7B7` | `#707070` | Stopped state, "(missing on server)" |
 
-Zcode-ish signature details (dark): near-black blue-leaning background, low-contrast chrome (sidebar barely distinguishable from transcript), single blue accent used sparingly, monospace for all meta (timestamps, model names, group headers).
+Zcode-ish signature details (dark): near-black monochrome chrome based on Warp's default dark theme (`#181818` / `#d8d8d8`) with the user's darker near-black base (`#0A0A0A`), low-contrast panels (the sidebar is a step darker still), greyscale accents, monospace for all meta (timestamps, model names, group headers).
+
+The palette is **greyscale**: every theme color has R = G = B. The only chromatic values in the app are the three macOS window controls — close `#FF5F57`, minimize `#FEBC2E`, zoom `#28C840` — defined in `src/theme.rs` and drawn by `src/ui/title_bar.rs`.
 
 ## 4. How the palette is applied
 
@@ -65,5 +69,5 @@ Zcode-ish signature details (dark): near-black blue-leaning background, low-cont
 
 ## 6. Contrast checks (M5 acceptance)
 
-- All text/background pairs meet WCAG AA (≥ 4.5:1) in **both** palettes; verify `text_muted` on `background` explicitly (dim text is the usual offender; the dark value above is ~4.6:1).
+- All text/background pairs meet WCAG AA (≥ 4.5:1) in **both** palettes; verify `text_muted` on `background` explicitly (dim text is the usual offender; the values above are ~6.8:1 dark and ~5.3:1 light).
 - Focus rings visible in both appearances (accent on background).
