@@ -1,6 +1,6 @@
 [package]
 name = "dislexia"
-version = "0.2.2"
+version = "0.2.3"
 edition = "2024"
 description = "macOS menu-bar chat client for local Ollama models"
 license = "BSD-3-Clause"

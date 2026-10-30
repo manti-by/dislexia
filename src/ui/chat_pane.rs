@@ -7,6 +7,7 @@
 use gpui_kit::component::Disableable as _;
 use gpui_kit::component::button::{Button, ButtonVariants as _};
 use gpui_kit::component::input::Textarea;
+use gpui_kit::component::scroll::{ScrollableElement as _, ScrollbarAxis};
 use gpui_kit::component::{ActiveTheme, Sizable as _, h_flex, v_flex};
 use gpui_kit::*;
 
@@ -88,14 +89,21 @@ pub fn render(this: &mut Dislexia, cx: &mut Context<Dislexia>) -> impl IntoEleme
         .min_w_0()
         .min_h_0()
         .bg(theme.background)
-        // Transcript
+        // Transcript. The scrollbar is an overlay child of the wrapper
+        // (`component::scroll::Scrollbar`): the transcript keeps the scroll
+        // state on the app's `ScrollHandle`, and the scrollbar reads the same
+        // handle, so thumb and content stay in sync. `viewport_from_layout`
+        // sizes the thumb from the overlay's own bounds — the wrapper's,
+        // exactly the transcript's viewport (`plan 03 §1`).
         .child(
             div()
                 .w_full()
                 .flex_1()
                 .min_h_0()
+                .relative()
                 .overflow_hidden()
-                .child(transcript),
+                .child(transcript)
+                .scrollbar(this.scroll_handle(), ScrollbarAxis::Vertical),
         )
         // Composer: floating rounded box at the window bottom, button inside
         // its bottom-right corner.

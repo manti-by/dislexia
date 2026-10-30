@@ -149,6 +149,8 @@ pub struct Dislexia {
     input: Entity<TextareaState>,
     /// Scroll handle of the transcript, for follow-on-append.
     scroll: ScrollHandle,
+    /// Scroll handle of the sidebar chat list, for its scrollbar overlay.
+    sidebar_scroll: ScrollHandle,
     /// Chat settings (`plan 05`); persisted, edited in the settings dialog.
     settings: Settings,
     /// Editors + status for the settings dialog (rendered by settings_ui).
@@ -256,6 +258,7 @@ impl Dislexia {
             store,
             input,
             scroll: ScrollHandle::new(),
+            sidebar_scroll: ScrollHandle::new(),
             settings,
             settings_ui,
             save_generation: 0,
@@ -306,6 +309,11 @@ impl Dislexia {
     /// The scroll handle backing the transcript (chat pane reads it).
     pub fn scroll_handle(&self) -> &ScrollHandle {
         &self.scroll
+    }
+
+    /// The scroll handle backing the sidebar chat list (sidebar reads it).
+    pub fn sidebar_scroll_handle(&self) -> &ScrollHandle {
+        &self.sidebar_scroll
     }
 
     pub fn is_streaming(&self) -> bool {

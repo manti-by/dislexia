@@ -7,6 +7,7 @@
 use gpui_kit::component::button::{Button, ButtonVariants as _};
 use gpui_kit::component::dialog::DialogTitle;
 use gpui_kit::component::input::{Input, InputState, Textarea, TextareaState};
+use gpui_kit::component::scroll::{ScrollableElement as _, ScrollbarAxis};
 use gpui_kit::component::select::{Select, SelectState};
 use gpui_kit::component::{
     ActiveTheme, Icon, IconName, Sizable as _, WindowExt as _, h_flex, v_flex,
@@ -29,6 +30,9 @@ pub enum ConnectionStatus {
 }
 
 pub struct SettingsUi {
+    /// Scroll handle of the dialog body, so the body scrolls with a visible
+    /// scrollbar when the window is small.
+    pub scroll: ScrollHandle,
     pub server_url: Entity<InputState>,
     pub system_prompt: Entity<TextareaState>,
     pub model: Entity<SelectState<Vec<SharedString>>>,
@@ -71,6 +75,7 @@ pub fn build_state(
         cx.new(|cx| SelectState::new(model_items, selected_index, window, cx).searchable(true));
 
     SettingsUi {
+        scroll: ScrollHandle::new(),
         server_url: input(
             window,
             "http://127.0.0.1:11434",
@@ -164,7 +169,10 @@ fn render_content(this: &Dislexia, weak: WeakEntity<Dislexia>, cx: &App) -> Div 
             .child(text)
     };
 
-    v_flex()
+    let body = v_flex()
+        .id("settings-body")
+        .track_scroll(&ui.scroll)
+        .overflow_y_scroll()
         .px_4()
         .pb_4()
         .gap_3()
@@ -216,7 +224,22 @@ fn render_content(this: &Dislexia, weak: WeakEntity<Dislexia>, cx: &App) -> Div 
                     ),
             ),
         )
-        .child(render_options_grid(this, cx))
+        .child(render_options_grid(this, cx));
+
+    // The DialogContent already fills the dialog and grows with the body up
+    // to the viewport cap; this wrapper fills it and scrolls when the cap is
+    // reached, with the scrollbar as an overlay child reading the shared
+    // handle (`plan 03 §2`).
+    v_flex().w_full().flex_1().min_h_0().child(
+        div()
+            .w_full()
+            .flex_1()
+            .min_h_0()
+            .relative()
+            .overflow_hidden()
+            .child(body)
+            .scrollbar(&ui.scroll, ScrollbarAxis::Vertical),
+    )
 }
 
 /// Server URL row: status dot + Test button + result line.

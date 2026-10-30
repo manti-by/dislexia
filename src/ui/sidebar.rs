@@ -5,6 +5,7 @@
 
 use chrono::Utc;
 use gpui_kit::component::button::{Button, ButtonVariants as _};
+use gpui_kit::component::scroll::{ScrollableElement as _, ScrollbarAxis};
 use gpui_kit::component::{
     ActiveTheme, Icon, IconName, Sizable as _, WindowExt as _, h_flex, v_flex,
 };
@@ -28,8 +29,10 @@ pub fn render(this: &mut Dislexia, cx: &mut Context<Dislexia>) -> impl IntoEleme
 
     let mut list = v_flex()
         .id("chat-list")
+        .w_full()
         .flex_1()
         .min_h_0()
+        .track_scroll(this.sidebar_scroll_handle())
         .overflow_y_scroll()
         .gap_px();
 
@@ -114,7 +117,18 @@ pub fn render(this: &mut Dislexia, cx: &mut Context<Dislexia>) -> impl IntoEleme
                     this.handle_new_chat(window, cx);
                 })),
         )
-        .child(list)
+        // Same scrollbar-overlay pattern as the transcript pane
+        // (`plan 03 §1`): the wrapper clips, the list scrolls on the app's
+        // handle, and the overlay reads the same handle for its thumb.
+        .child(
+            div()
+                .flex_1()
+                .min_h_0()
+                .relative()
+                .overflow_hidden()
+                .child(list)
+                .scrollbar(this.sidebar_scroll_handle(), ScrollbarAxis::Vertical),
+        )
 }
 
 /// Delete-with-confirm (`plan 03 §4`, v1 minimum).
